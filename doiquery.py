@@ -25,12 +25,7 @@ def main(argv):
         exit()
 
     refs = util.load_bib_lines(argv.files, argv.decomp)
-#    refs = []
-#    for i in argv.files:
-#        #make sure that each file actually exists.
-#        if os.path.isfile(i):
-#            refs.extend(util.load_bib_blocks(i, decomp=argv.decomp))
-#    print len(refs)
+
     writeToQuery(refs, argv.email, argv.batch)
 
 

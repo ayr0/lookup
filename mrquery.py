@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     mrargs = argparse.ArgumentParser(description="Lookup MR References from doi")
     mrargs.add_argument("--autodoi", action="store_true", help="Automatic DOI query (requires Crossref account)")
-    mrargs.add_argument("--doi", metavar='batch', action="store", help="Add DOI references to final output")
+    mrargs.add_argument("--doi", metavar='batch', default="", action="store", help="Add DOI references to final output")
     mrargs.add_argument("--no-mr", action="store_true", help="Don't search for MR record")
     mrargs.add_argument("--owritemr", action="store_true", help="Overwrite existing MR references with queried references", default=False)
     mrargs.add_argument("--owritedoi", action="store_true", help="Overwrite existing DOI references with queried references", default=False)

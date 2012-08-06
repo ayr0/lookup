@@ -1,23 +1,10 @@
 #Utility functions
 
-import re
+
 import os
 import RefObj
 import fileinput
 import itertools
-import logging
-
-bib_regex_str = r'''
-    (?!\\begin{thebibliography})        #find '\begin{thebibliography}' but don't start matching till AFTER
-    (\\bibitem.+?)                      #start match at each '\bibitem' phrase
-    (?=\\bibitem                        #Match until next '\bibitem' is found
-    |                                   # OR
-    \\end{thebibliography}              #until '\end{thebibliography}' is found
-    |                                   # OR
-    \%)                                  #until a comment
-    '''
-
-bib_regex = re.compile(bib_regex_str, re.S|re.VERBOSE)
 
 def load_bib_lines(filenames, decomp=True):
     """Load *.tex files and read them line by line.
@@ -25,6 +12,7 @@ def load_bib_lines(filenames, decomp=True):
     
     bibliography = {}
     bibsection = 0
+    biberrors = 0
     for line in fileinput.input(filenames):
         #iterate until we get to a bibitem section
         if line.startswith(r"\begin{thebibliography}"):
@@ -42,12 +30,17 @@ def load_bib_lines(filenames, decomp=True):
             if not line.isspace():
                 try:
                     line = line.decode("ascii")
-                except UnicodeEncodeError:
-                    print "Special Character on line {0} in file {0}".format(fileinput.filelineno(), fileinput.filename())
+                    bibitems.append(line.strip())
+                except UnicodeDecodeError:
+                    print "Special Character on line {0} in file {1}".format(fileinput.filelineno(), fileinput.filename())
                     print line
                     print "-".center(80, '-')
-                bibitems.append(line.strip())
+                    biberrors += 1
     
+    if biberrors > 0:
+        print "{0} errors detected.  Received non-ASCII input".format(biberrors)
+        #return an empty list so we don't process bad output
+        return []
     return split_bibitems(bibliography, decomp)
     
 def split_bibitems(bibliography, decomp):
@@ -70,30 +63,7 @@ def partition(alist, indices):
     izip, chain = itertools.izip, itertools.chain
     pairs = izip(chain([0], indices), chain(indices, [None]))
     return (alist[i:j] for i, j in pairs)
- 
-def load_bib_blocks(filename, decomp=True):
-    """Load *.tex files and extract the bibliography section with references"""
-    refs = []
-
-    try:
-        #file exists, now try to open
-        with open(filename, 'r') as tex_file:
-            texlines = tex_file.readlines()
-        
-    except:
-        print "This doesn't appear to be a file."
-        
-    #texstr = removeComments(texlines)
-    bib_blocks = re.findall(bib_regex, ''.join(texlines))
-
-
-    for i in xrange(len(bib_blocks)):
-        #check for illegal characters
-        #bib_blocks[i] = bib_blocks[i].replace(r'&', r'&amp;')
-        ref = RefObj.RefObj(os.path.abspath(filename), bib_blocks[i], decomp=decomp)
-        refs.append(ref)
-    return refs
-    
+     
 def removeComments(rstr, join=True):
     if isinstance(rstr, str):
         rlines = rstr.splitlines()
@@ -117,3 +87,17 @@ def removeComments(rstr, join=True):
                 break
         newref.append(s[:c])
     return ''.join(newref) if join else newref
+
+def matchBraces(string, openbrace='{', closebrace='}'):
+    cnt = 0
+    start = string.find(openbrace)
+    for end, c in enumerate(string[start:], start):
+        if c == openbrace:
+            cnt += 1
+        elif c == closebrace:
+            cnt -= 1
+            
+        if cnt == 0:
+            break
+        
+    return string[start+1:end] 
