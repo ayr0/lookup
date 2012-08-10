@@ -100,4 +100,11 @@ def matchBraces(string, openbrace='{', closebrace='}'):
         if cnt == 0:
             break
         
-    return string[start+1:end] 
+    return string[start+1:end]
+
+def splitAuthor(authors, sep='and'):
+    """Split string authors into a list of authors
+    based on sep
+    """
+    
+    return [k.strip() for k in authors.split(sep)]
