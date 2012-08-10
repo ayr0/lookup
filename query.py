@@ -15,17 +15,7 @@ import util
 def QueryDOI(ref):
     pass
 
-def _parse_return_link(self, data):
-    '''Parse returned link to get MR number'''
-
-    try:
-        prestr = self._get_pre_tag(data)
-        return "MR"+re.search(r'\?mr=(\d{7})\"', str(prestr), re.S).groups()[0]
-    except:
-        return None
-        print "failed in parse_return_link"
-
-def _get_pre_tag(self, data):
+def _get_pre_tag(data):
     '''Get the pre tag'''
     try:
         pretag = data[data.find("<pre>")+5:data.find("</pre>")]
@@ -34,39 +24,88 @@ def _get_pre_tag(self, data):
         return None
         print "failed to find <pre></pre> tags", data
 
+def link(data):
+    """Parse link data
+    
+    return dictionary with MR"""
+    
+    ret = {}
+
+    endtag = data.find(">") + 1
+    ret['MRNUMBER'] = data[endtag:data.find("<", endtag)]
+    return ret
+
 def bibtex(data):
     """Parse bibtex data
     return dictionary of fields"""
     
-    common = {'required': ['mrnumber'],
-              'optional': ['doi']}
-    article = {'required': ['author', 'title', 'journal', 'year'],
-               'optional': ['volume', 'number', 'pages', 'month', 'note', 'key']}
-    book = {'required': [('author', 'editor'), 'title', 'publisher', 'year'],
-            'optional': [('volume', 'number'), 'series', 'address', 'edition', 'month', 'key', 'note']}
-    incollection = {'required': ['author', 'title', 'booktitle', 'publisher', 'year'],
-                    'optional': ['editor', ('volume', 'number'), 'series', 'type', 'chapter', 'pages', 'address', 'edition', 'month', 'key', 'note']}
-    inproceedings = {'required': ['author', 'title', 'booktitle', 'year'],
-                     'optional': ['editor', ('volume', 'number', )]}
-    
     ret = {}
-    match_data = [x.strip() for x in data.splitlines()]
-    ret['type'] = match_data[0].split()[0][1:]
-    for x in match_data[1:-1]:
-        x = [k.strip() for k in x.split('=')]
-        ret[x[0]] = x[1][1:-2]
-    return ret
+    match_data = [x.split('=') for x in data.splitlines()]
+                          
+    for x in match_data:
+        try:
+            entry = x[0].strip().upper()
+            value = util.matchBraces(x[1], openbrace='{', closebrace='}')
+            print entry == "AUTHOR"
+            if entry == 'AUTHOR':
+                ret[entry] = util.splitAuthor(value, 'and')
+            else:
+                ret[entry] = value
+        except IndexError:
+            pass
     
+    return ret
+
 def amsref(data):
     """Parse amsref data
     return dictionary of fields"""
     
-    pass
-            
-def QueryMR(ref, dataType='bibtex'):
-    """Fetch MR reference from ams.org and return"""
+    ret = {}
+    match_data = [x.split('=') for x in data.splitlines()]
+    
+    for x in match_data:
+        #make x[0] upper case
+        #combine authors if possible
+        try:
+            entry = x[0].strip().upper()
+            value = util.matchBraces(x[1], openbrace='{', closebrace='}')
+            if entry == "AUTHOR":
+                if entry in ret:
+                    ret[entry].append(value)
+                else:
+                    ret[entry] = [value]
+            elif entry == "REVIEW":
+                ret["MRNUMBER"] = util.matchBraces(value, openbrace='{', closebrace='}')
+            else:
+                ret[entry] = value
+        except IndexError:
+            pass
+    
+    return ret          
+    
+def QueryMR(ref, overwrite, dataType='amsrefs', oldmr=""):
+    """Fetch MR reference from ams.org and return
+    
+    You can set a preference:
+    if overwrite evaluates True -> use AMS
+    if overwrite evaluates False -> use oldmr if possible
+    
+    Datatype can be:
+    link, amsrefs, bibtex
+    """
+    
+    def cmpMR(mr1, mr2):
+        """Return True if mr1 and mr2 are equal
+        
+        Expected MR types:
+        MRxxxxxxx or xxxxxxx
+        """
+        if mr1[-7:] == mr2[-7:]:
+            return True
+        else:
+            return False
 
-    dataType = '&dataType=%s' % dataType #bibtex, amsrefs, tex, mathscinet
+    dataType = '&dataType=%s' % dataType #bibtex, amsrefs, link
     queryURL = 'http://www.ams.org/mathscinet-mref?ref='
     htmlquerystr = quote(ref.strip())
     testURL = "%s%s%s" % (queryURL, htmlquerystr, dataType)
@@ -76,23 +115,24 @@ def QueryMR(ref, dataType='bibtex'):
         #self.setMR(self._parse_return_link(result.read()))
         #print "Original MR: %s -> AMS MR: %s" % (self.ref_mr, self.ref_mr)
         n = "None".ljust(9)
-        amsmr = self._parse_return_link(result.read())
-        oldmr = self.ref_mr
-        if self.ref_mr and amsmr:
-            if not self.cmpMR(self.ref_mr, amsmr):
+        pretag = _get_pre_tag(result.read())
+        amsmr = link(pretag)
+        
+        if oldmr and amsmr:
+            if not cmpMR(oldmr, amsmr):
                 mrmatch = "MR Mismatch"
-                if overwrite is True:
+                if overwrite:
                     msg = "Replacing with AMS"
-                    self.setMR(amsmr)
+                    return amsmr
                 else:
                     msg = "Keeping Original"
             else:
                 mrmatch = "MR Match"
                 msg = "Keeping Original"
-        elif amsmr and not self.ref_mr:
+        elif amsmr and not oldmr:
             mrmatch = "!!MR FOUND!!"
             msg = "Inserting AMS"
-            self.setMR(amsmr)
+            return amsmr
         else:
             mrmatch = "----------"
             
@@ -102,5 +142,5 @@ def QueryMR(ref, dataType='bibtex'):
                 amsmr if amsmr else n, \
                 mrmatch, msg)
     except URLError, error_msg:
-        print "An error has occured while opening url::",error_msg
+        print "An error has occurred while opening url::",error_msg
         #print testURL
