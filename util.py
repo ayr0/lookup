@@ -75,8 +75,6 @@ def removeComments(rstr, join=True):
         strlen = len(s)
         while (c < strlen):
             occ = s.find('%', c)
-            #print "occ: ", occ
-            #print "string slice: ", rstr[occ-10:occ+10]
             if occ == -1:
                 c = strlen
                 break
@@ -108,3 +106,18 @@ def splitAuthor(authors, sep='and'):
     """
     
     return [k.strip() for k in authors.split(sep)]
+
+def reformat(refstr, listed=False):
+        r"""Reformat the reference.
+
+        listed controls the return type.  If true, will return a list of the lines.
+        If false, will return a string
+        
+        Changes self.refstr
+        """
+        
+        formatted = ' '.join(refstr.split()).replace(r'\newblock', '\n\\newblock').splitlines()
+        if listed:
+            return formatted
+        else:
+            return '\n'.join(formatted)

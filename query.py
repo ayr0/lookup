@@ -17,13 +17,14 @@ def QueryDOI(ref):
 
 def _get_pre_tag(data):
     '''Get the pre tag'''
-    try:
-        pretag = data[data.find("<pre>")+5:data.find("</pre>")]
+    pre_start = data.find("<pre>") + 5
+    pre_end = data.find("</pre>")
+    if pre_end != -1:
+        pretag = data[pre_start:pre_end]
         return pretag
-    except:
-        return None
-        print "failed to find <pre></pre> tags", data
-
+    else:
+        return ""
+    
 def link(data):
     """Parse link data
     
@@ -56,7 +57,7 @@ def bibtex(data):
     
     return ret
 
-def amsref(data):
+def amsrefs(data):
     """Parse amsref data
     return dictionary of fields"""
     
@@ -83,7 +84,7 @@ def amsref(data):
     
     return ret          
     
-def QueryMR(ref, overwrite, dataType='amsrefs', oldmr=""):
+def QueryMR(ref, dataType='amsrefs'):
     """Fetch MR reference from ams.org and return
     
     You can set a preference:
@@ -93,6 +94,10 @@ def QueryMR(ref, overwrite, dataType='amsrefs', oldmr=""):
     Datatype can be:
     link, amsrefs, bibtex
     """
+    
+    handler = {'link': link,
+               'amsrefs': amsrefs,
+               'bibtex': bibtex}
     
     def cmpMR(mr1, mr2):
         """Return True if mr1 and mr2 are equal
@@ -105,42 +110,24 @@ def QueryMR(ref, overwrite, dataType='amsrefs', oldmr=""):
         else:
             return False
 
-    dataType = '&dataType=%s' % dataType #bibtex, amsrefs, link
-    queryURL = 'http://www.ams.org/mathscinet-mref?ref='
-    htmlquerystr = quote(ref.strip())
-    testURL = "%s%s%s" % (queryURL, htmlquerystr, dataType)
+    #queryURL = 'http://www.ams.org/mathscinet-mref?ref='
+    testURL = r"http://www.ams.org/mathscinet-mref?ref={0}&dataType={1}".format(quote(ref.strip()), 
+                                                                                dataType)
 
     try:
         result = urlopen(testURL)
         #self.setMR(self._parse_return_link(result.read()))
         #print "Original MR: %s -> AMS MR: %s" % (self.ref_mr, self.ref_mr)
-        n = "None".ljust(9)
         pretag = _get_pre_tag(result.read())
-        amsmr = link(pretag)
+        amsmr = handler[dataType](pretag)
         
-        if oldmr and amsmr:
-            if not cmpMR(oldmr, amsmr):
-                mrmatch = "MR Mismatch"
-                if overwrite:
-                    msg = "Replacing with AMS"
-                    return amsmr
-                else:
-                    msg = "Keeping Original"
-            else:
-                mrmatch = "MR Match"
-                msg = "Keeping Original"
-        elif amsmr and not oldmr:
-            mrmatch = "!!MR FOUND!!"
-            msg = "Inserting AMS"
-            return amsmr
-        else:
-            mrmatch = "----------"
-            
-        msg = ""
-        print "Original: %s\tAMS.org: %s\t%s\t%s" % \
-            (oldmr if oldmr else n, 
-                amsmr if amsmr else n, \
-                mrmatch, msg)
+        return 0, amsmr
     except URLError, error_msg:
-        print "An error has occurred while opening url::",error_msg
+        print "An error has occurred while opening url::", error_msg, testURL
+        return 2, None
+    except KeyError:
+        print "Unknown datatype! please use 'amsrefs', 'bibtex', or 'link'"
+        return 3, None
         #print testURL
+    except:
+        return 1, None

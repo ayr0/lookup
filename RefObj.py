@@ -1,49 +1,43 @@
 __author__ = 'grout'
 
 import hashlib
-import re
-import util
 from urllib import urlencode, quote
 from urllib2 import urlopen, URLError
 from xml.dom import minidom
 import logging
+
+import util
+import query
 
 class RefObj(object):
     def __init__(self, filename, refstr = "", decomp=True, **attrs):
     
         self.attrs = attrs
         self.ref_file = filename
-        refstr = self._rmComments(refstr)
+        refstr = util.removeComments(refstr)
         
         mr_data = self._removeMR(refstr)
         doi_data = self._removeDOI(mr_data[0])
         self.ref_str = doi_data[0]
         
-        self.ref_mr = mr_data[1]
-        self.ref_doi = doi_data[1]
+        self.ref_mr = self.setMR(mr_data[1])
+        self.ref_doi = self.setDOI(doi_data[1])
         self.ref_key = hashlib.sha256(''.join(self.ref_str.split())).hexdigest()
-        
-        self.dataType = '&dataType=link' #bibtex, amsrefs, tex, mathscinet
-        self.queryURL = 'http://www.ams.org/mathscinet-mref?ref='
         
         print "Created reference (MR: %s\tDOI: %s)" % (self.ref_mr, self.ref_doi)
 
-        self._reformat(listed=False)
-        if decomp:
-            try:
-                self.decomp = self._dcomp()
-                print "Decomposed reference"
-            except:
-                print "Decomposition failed!".center(80, '-')
-
-    def _rmComments(self, rstr):
-        '''remove any commented lines in the reference'''
-        return util.removeComments(rstr)
+#        util.reformat(listed=False)
+#        if decomp:
+#            try:
+#                self.decomp = self._dcomp()
+#                print "Decomposed reference"
+#            except:
+#                print "Decomposition failed!".center(80, '-')
         
     def _existDOI(self, bibstr):
         '''If DOI exists in bibstr, return True.  Otherwise, return False'''
         
-        doistr = self._reformat(ref=bibstr, listed=True)[0]
+        doistr = util.reformat(bibstr, listed=True)[0]
         doistr = self._removeDOI(doistr)[1]
         if doistr:
             #print "Using existing DOI number", doistr
@@ -55,7 +49,7 @@ class RefObj(object):
         '''Return True if MR reference is present'''
 
         #format the reference
-        mrstr = self._reformat(ref=bibstr, listed=True)[0]
+        mrstr = util.reformat(bibstr, listed=True)[0]
         mrstr = self._removeMR(mrstr)[1]
         if mrstr:
             #print "Using existing MR number",mrstr
@@ -109,43 +103,7 @@ class RefObj(object):
         return bibstr, mrstr[1:-1]
 
 
-    def _reformat(self, ref=None, listed=False):
-        r"""Reformat the reference.
-
-        listed controls the return type.  If true, will return a list of the lines.
-        If false, will return a string
-        
-        Changes self.refstr
-        """
-        
-        if ref is None:
-            ref = self.ref_str
-            
-        formatted = ' '.join(self.ref_str.split()).replace(r'\newblock', '\n\\newblock').splitlines()
-        if listed:
-            return formatted
-        else:
-            return '\n'.join(formatted)
-
-    def _parse_return_link(self, data):
-        '''Parse returned link to get MR number'''
-
-        try:
-            prestr = self._get_pre_tag(data)
-            return "MR"+re.search(r'\?mr=(\d{7})\"', str(prestr), re.S).groups()[0]
-        except:
-            return None
-            print "failed in parse_return_link"
-
-    def _get_pre_tag(self, data):
-        '''Get the pre tag'''
-        try:
-            pretag = re.search(r'<pre>(.+)</pre>', str(data), re.S).groups()[0]
-            return pretag
-        except:
-            return None
-            print "failed to find <pre></pre> tags", data
-
+    
     def _dcomp(self):
         """Decompose  reference if needed into a dictionary containing:
         {Author:*, Title:*, Journal:*, IssueN:*, FirstPage:,}
@@ -237,17 +195,6 @@ class RefObj(object):
 
     def addRefs(self, mr=True, doi=True):
 
-        #block = self.ref_str
-
-        #if not self.ref_doi:
-        #    refless_block = self._removeDOI(block)[0]
-        #else:
-        #    refless_block = block
-
-        #refless_block = self._removeMR(refless_block)[0]
-
-        #lines = refless_block.splitlines()
-        #bibline = lines[0]
         
         lines = self.ref_str.splitlines()
         bibline = lines[0]
@@ -297,59 +244,50 @@ class RefObj(object):
         lines[-1] = lines[-1] + "\n\n"
         return ''.join(lines)
 
-    def fetchMR(self, overwrite=False):
-        """Fetch MR reference from ams.org"""
-
-        #if not overwrite:
-            ##check for existing MR
-            #if self.ref_mr:
-                ##make a copy of the mr reference
-                #self.old_mr = self.ref_mr
-
-        htmlquerystr = quote(self.ref_str.strip())
-        testURL = "%s%s%s" % (self.queryURL, htmlquerystr, self.dataType)
-
-        try:
-            result = urlopen(testURL)
-            #self.setMR(self._parse_return_link(result.read()))
-            #print "Original MR: %s -> AMS MR: %s" % (self.ref_mr, self.ref_mr)
-            n = "None".ljust(9)
-            amsmr = self._parse_return_link(result.read())
-            oldmr = self.ref_mr
-            if self.ref_mr and amsmr:
-                if not self.cmpMR(self.ref_mr, amsmr):
-                    mrmatch = "MR Mismatch"
-                    if overwrite is True:
-                        msg = "Replacing with AMS"
-                        self.setMR(amsmr)
-                    else:
-                        msg = "Keeping Original"
-                else:
-                    mrmatch = "MR Match"
-                    msg = "Keeping Original"
-            elif amsmr and not self.ref_mr:
-                mrmatch = "!!MR FOUND!!"
-                msg = "Inserting AMS"
-                self.setMR(amsmr)
-            else:
-                mrmatch = "----------"
+    def fetchMR(self, mode=2, debug=""):
+        """Fetch MR reference from ams.org
+        
+        modes:
+        0: always use AMS values
+        1: always use existing values
+        2: use AMS only when no existing value else existing value
+        """
+        #Use query module
+        
+        ret, self.query = query.QueryMR(self.ref_str, dataType="amsrefs")
+        logging.debug(self.ref_str)
+        logging.debug(self.query)
+        if mode == 1:
+            print "Mode = 1: returning ({})".format(self.ref_mr)
+            return
+        else:
+            try:
+                amsmr = self.query.get("MRNUMBER", "")[:7]
+                doicref = self.query.get("DOI", "")
                 
-            msg = ""
-            print "Original: %s\tAMS.org: %s\t%s\t%s" % \
-                (oldmr if oldmr else n, 
-                    amsmr if amsmr else n, \
-                    mrmatch, msg)
-        except URLError, error_msg:
-            print "An error has occured while opening url::",error_msg
-            #print testURL
+                if mode == 0:
+                    logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))
+                    self.setMR(amsmr)
+                    self.setDOI(doicref)
+                elif mode == 2 and not self.ref_mr:
+                    logging.info("Mode = 1: existing: {}\tsetting MR={}".format(self.ref_mr, amsmr))
+                    self.setMR(amsmr)
+                
+                if mode == 2 and not self.ref_doi:
+                    logging.info("Mode = 1: existing: {}\tsetting DOI={}".format(self.ref_doi, doicref))
+                    self.setDOI(doicref)
+            except AttributeError:
+                print "No query information"
+            except KeyError:
+                print "No MR number"
 
-    def fetchDOI(self, user, passwd, overwrite=False):
+        
+           
+
+    def fetchDOI(self, user, passwd, mode=2):
         """Fetch DOI reference from crossref.org
         This will ONLY work for decomposed references.
         This requires a crossref account"""
-
-        
-        #account = "%s:%s" % (user, passwd)
 
 
         #url = r"http://www.crossref.org/openurl?pid=%s&" % account.strip()
@@ -390,20 +328,12 @@ class RefObj(object):
     def setDOI(self, doi):
         """Setter for DOI reference number"""
         if isinstance(doi, str):
-            self.ref_doi = doi
+            self.ref_doi = doi.strip()
 
     def setMR(self, mr):
         """Setter for MR reference number"""
         if isinstance(mr, str):
-            self.ref_mr = mr
-    
-    def cmpMR(self, mr1, mr2):
-        """Return True if mr1 and mr2 are equalj
-        
-        Expected MR types:
-        MRxxxxxxx or xxxxxxx
-        """
-        if mr1[-7:] == mr2[-7:]:
-            return True
-        else:
-            return False
+            if mr.startswith("MR"):
+                self.ref_mr = mr.strip()
+            else:
+                self.ref_mr = "MR{0}".format(mr.strip())

@@ -8,11 +8,21 @@ from getpass import getpass
 from xml.etree import cElementTree as cET
 from RefObj import RefObj
 import util
+import logging
 
 
 def main(argv):
     '''kick everything off'''
     #argv is a argparse Namespace instance
+
+    refs = util.load_bib_lines(argv.files, False)
+
+    if argv.dump is True:
+        debug = logging.DEBUG
+    else:
+        debug = logging.INFO
+        
+    logging.basicConfig(filename="mrquery.log", level=debug, filemode='w')
 
 
     if argv.autodoi is True:
@@ -33,22 +43,21 @@ def main(argv):
             print "Unable to verify Crossref account.  Ignoring --auto flag"
             print "Please create a crossref.cfg file with user name and password"
             argv.autodoi = False
-
-
-    #Store the reference objects in a list
-    #Loop through each file and get its references
-    refs = util.load_bib_lines(argv.files, False)
-    #Start the MR reference query
-    if not argv.no_mr:
-        queryMR(refs, overwrite=argv.owritemr)
-
-    if argv.autodoi is True:
-        queryDOI(refs, cref_user, cref_passwd, overwrite=argv.owritedoi)
+            
+        queryDOI(refs, cref_user, cref_passwd, mode=argv.mode, debug=debug)
     else:
         #check for the existence of a doi file
         if os.path.exists(argv.doi):
             loadDoi(argv.doi, refs)
+        
 
+
+    #Store the reference objects in a list
+    #Loop through each file and get its references
+    #Start the MR reference query
+    if not argv.no_mr:
+        queryMR(refs, mode=argv.mode, debug=debug)
+        
     writeMRefFile(refs)
 
 def generateFileList(refs):
@@ -71,8 +80,8 @@ def writeMRefFile(references):
     for f in files:
         with open("%s_refs.tex" % os.path.splitext(f)[0], "w") as ofile:
             for ref in references:
-            	if ref.ref_file == f:
-                	ofile.write('%s\n\n' % ref._reformat(ref=ref.addRefs()))
+                if ref.ref_file == f:
+                    ofile.write('%s\n\n' % util.reformat(ref.addRefs()))
 
 def loadDoi(filename, references):
     """Load <batch>_doi.xml"""
@@ -131,14 +140,14 @@ def loadDoi(filename, references):
 
 
 
-def queryMR(references, overwrite=False):
+def queryMR(references, mode=2, debug=""):
     """Fetch the MR references for each reference"""
-    [ref.fetchMR(overwrite=overwrite) for ref in references]
+    [ref.fetchMR(mode=mode) for ref in references]
 
-def queryDOI(references, user, passwd, overwrite=False):
+def queryDOI(references, user, passwd, mode=2, debug=""):
     """Fetch the DOI references for each reference"""
     print user, passwd
-    [ref.fetchDOI(user, passwd, overwrite=overwrite) for ref in references]
+    [ref.fetchDOI(user, passwd, mode=mode) for ref in references]
 
 
 
@@ -149,8 +158,10 @@ if __name__ == "__main__":
     mrargs.add_argument("--autodoi", action="store_true", help="Automatic DOI query (requires Crossref account)")
     mrargs.add_argument("--doi", metavar='batch', default="", action="store", help="Add DOI references to final output")
     mrargs.add_argument("--no-mr", action="store_true", help="Don't search for MR record")
-    mrargs.add_argument("--owritemr", action="store_true", help="Overwrite existing MR references with queried references", default=False)
-    mrargs.add_argument("--owritedoi", action="store_true", help="Overwrite existing DOI references with queried references", default=False)
+    mrargs.add_argument("--mode", action="store", default=2, type=int, help="Query mode: 0 = Always use queried value; 1 = Always use existing value; 2 = Use queried value only when necessary")
+    mrargs.add_argument("--dump", action="store_true", help="Dump query results to file (For debugging)")
+    #mrargs.add_argument("--owritemr", action="store_true", help="Overwrite existing MR references with queried references", default=False)
+    #mrargs.add_argument("--owritedoi", action="store_true", help="Overwrite existing DOI references with queried references", default=False)
     #mrargs.add_argument("--output", action='store', help="Alternative output filename")
     mrargs.add_argument('files', metavar='files', nargs='+', help='TeX files to process')
 
