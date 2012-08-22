@@ -1,9 +1,7 @@
 __author__ = 'grout'
 
 from sys import exit
-from util import load_bib_blocks
 from xml.etree import cElementTree as cET
-import os
 import ConfigParser
 import util
 
@@ -12,7 +10,6 @@ def main(argv):
     #check for email address in ConfigFile if no email given on commandline
     if not argv.email:
         doiConfig = ConfigParser.SafeConfigParser()
-        cref_email = None
         try:
             doiConfig.read('./crossref.cfg')
             argv.email = doiConfig.get('crossref', 'email')
