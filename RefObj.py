@@ -25,14 +25,6 @@ class RefObj(object):
         self.ref_key = hashlib.sha256(''.join(self.ref_str.split())).hexdigest()
         
         print "Created reference (MR: %s\tDOI: %s)" % (self.ref_mr, self.ref_doi)
-
-#        util.reformat(listed=False)
-#        if decomp:
-#            try:
-#                self.decomp = self._dcomp()
-#                print "Decomposed reference"
-#            except:
-#                print "Decomposition failed!".center(80, '-')
         
     def _existDOI(self, bibstr):
         '''If DOI exists in bibstr, return True.  Otherwise, return False'''
@@ -226,17 +218,17 @@ class RefObj(object):
 
         if not self.ref_mr:
             if not self.ref_doi:
-                lines[0] = "%s \n %s" % (bibline[s:superb], bibline[superb:])
+                lines[0] = "{0} \n {1}".format(bibline[s:superb], bibline[superb:])
             else:
                 #no mr_str, but exists doi_str
-                lines[0] = "%s [%s] \n %s" % (bibline[s:superb], self.ref_doi, bibline[superb:])
+                lines[0] = "{0} [{1}] \n {2}".format(bibline[s:superb], self.ref_doi, bibline[superb:])
         else:
             #mr_str exists, doi_str is null
             if not self.ref_doi:
-                lines[0] = "%s (%s) \n %s" % (bibline[s:superb], self.ref_mr, bibline[superb:])
+                lines[0] = "{0} ({1}) \n {2}".format(bibline[s:superb], self.ref_mr, bibline[superb:])
             else:
                 #mr_str and doi_str
-                lines[0] = "%s (%s) [%s] \n %s" % (bibline[s:superb], self.ref_mr, self.ref_doi, bibline[superb:])
+                lines[0] = "{0} ({1}) [{2}] \n {3}".format(bibline[s:superb], self.ref_mr, self.ref_doi, bibline[superb:])
 
         #print "bibline: %s" % bibline
         #print "MR: %s \t DOI: %s" % (self.ref_mr, self.ref_doi)
@@ -244,7 +236,7 @@ class RefObj(object):
         lines[-1] = lines[-1] + "\n\n"
         return ''.join(lines)
 
-    def fetchMR(self, mode=2, debug=""):
+    def fetchMR(self, mode=2, dataType="bibtex"):
         """Fetch MR reference from ams.org
         
         modes:
@@ -254,7 +246,7 @@ class RefObj(object):
         """
         #Use query module
         
-        ret, self.query = query.QueryMR(self.ref_str, dataType="amsrefs")
+        self.query = query.QueryMR(self.ref_str, dataType=dataType)
         logging.debug(self.ref_str)
         logging.debug(self.query)
         if mode == 1:
@@ -280,50 +272,6 @@ class RefObj(object):
                 print "No query information"
             except KeyError:
                 print "No MR number"
-
-        
-           
-
-    def fetchDOI(self, user, passwd, mode=2):
-        """Fetch DOI reference from crossref.org
-        This will ONLY work for decomposed references.
-        This requires a crossref account"""
-
-
-        #url = r"http://www.crossref.org/openurl?pid=%s&" % account.strip()
-        url = r"http://doi.crossref.org/servlet/query?usr={0}&pwd={1}".format(user, passwd)
-        unixref = r"&redirect=false&multihit=false&format=unixref&qdata="
-        #opts = ""
-
-    #if we have decomposed the reference, we should use the elements
-        if hasattr(self, 'decomp'):
-            authorlast = self.decomp['author'][0].split()[-1] \
-                            if self.decomp.has_key('author') else ""
-            journaltitle = self.decomp['title'] \
-                            if self.decomp.has_key('title') else ""
-            firstpage = self.decomp['first_page'] \
-                            if self.decomp.has_key('first_page') else ""
-            volume = self.decomp['volume'] \
-                            if self.decomp.has_key('volume') else ""
-            date = self.decomp['year'] \
-                            if self.decomp.has_key('year') else ""
-
-            opts = urlencode({'aulast':authorlast, 
-                                'title':journaltitle,
-                                'spage':firstpage,
-                                'volume':volume,
-                                'date':date})
-        
-        try:
-            result = urlopen("%s%s%s" % (url, opts, unixref)).read()
-            doc = minidom.parseString(result)
-            dois = doc.getElementsByTagName('doi')
-            print dois
-            dois = [doi.childNodes[0].nodeValue for doi in dois]
-        except:
-            pass
-
-        print "%s%s%s" % (url, opts, unixref)
 
     def setDOI(self, doi):
         """Setter for DOI reference number"""
