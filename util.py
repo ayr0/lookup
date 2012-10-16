@@ -5,6 +5,22 @@ import os
 import RefObj
 import fileinput
 import itertools
+import ConfigParser
+import string
+
+def getsubst(configFile):
+    
+    f = ConfigParser.SafeConfigParser()
+    f.read(configFile)
+    
+    subst = []
+    try:
+        for val, sub in f.items('detex'):
+            subst.append((val, sub))
+        subst = tuple(subst)
+        return subst
+    except ConfigParser.NoSectionError:
+        return None
 
 def load_bib_lines(filenames, decomp=True):
     """Load *.tex files and read them line by line.
@@ -85,27 +101,17 @@ def removeComments(rstr, join=True):
                 break
         newref.append(s[:c])
     return ''.join(newref) if join else newref
-
-def matchBraces(string, openbrace='{', closebrace='}'):
-    cnt = 0
-    start = string.find(openbrace)
-    for end, c in enumerate(string[start:], start):
-        if c == openbrace:
-            cnt += 1
-        elif c == closebrace:
-            cnt -= 1
             
-        if cnt == 0:
-            break
-        
-    return string[start+1:end]
-
-def splitAuthor(authors, sep='and'):
+def splitAuthor(authors, sep='and', first=True):
     """Split string authors into a list of authors
-    based on sep
+    based on sep and return the first author only if first is True
     """
     
-    return [k.strip() for k in authors.split(sep)]
+    tmp = [k.strip() for k in authors.split(sep)]
+    if first is True:
+        return tmp[0].split(',')[0].strip()
+    else:
+        return tmp
 
 def reformat(refstr, listed=False):
         r"""Reformat the reference.
@@ -121,3 +127,37 @@ def reformat(refstr, listed=False):
             return formatted
         else:
             return '\n'.join(formatted)
+
+def firstpage(pages):
+    """Extract first page number from the PAGES field"""
+    return pages[:pages.find('--')]
+
+def escape(text):
+    """Escape illegal XML characters
+
+    & -> &amp;
+    < -> &lt;
+    > -> &gt;
+    """
+    if isinstance(text, list):
+        for i, t in enumerate(text):
+            t = t.replace(r'&', r'&amp;')
+            t = t.replace(r'<', r'&lt;')
+            t = t.replace(r'>', r'&gt;')
+            text[i] = t
+    else:
+        text = text.replace(r'&', r'&amp;')
+        text = text.replace(r'<', r'&lt;')
+        text = text.replace(r'>', r'&gt;')
+    return text
+
+def detex(subs, tex):
+    """Replace the bibtex item.  Assumes no reference numbers and a single reference"""
+    
+    tex = '\n'.join(reformat(tex, listed=True)[1:])
+    tex = tex.replace("~", " ")
+    
+    for old, new in subs:
+        tex = tex.replace(old, new)
+    
+    return tex
