@@ -10,21 +10,21 @@ import util
 import query
 
 class RefObj(object):
-    def __init__(self, filename, refstr = "", decomp=True, **attrs):
+    def __init__(self, filename, refstr="", decomp=False, **attrs):
     
         self.attrs = attrs
         self.ref_file = filename
         refstr = util.removeComments(refstr)
         
-        mr_data = self._removeMR(refstr)
-        doi_data = self._removeDOI(mr_data[0])
-        self.ref_str = doi_data[0]
+        doi_data = self._removeDOI(refstr)
+        mr_data = self._removeMR(doi_data[0])
+        self.ref_str = mr_data[0]
         
-        self.ref_mr = self.setMR(mr_data[1])
-        self.ref_doi = self.setDOI(doi_data[1])
+        self.ref_mr = mr_data[1]
+        self.ref_doi = doi_data[1]
         self.ref_key = hashlib.sha256(''.join(self.ref_str.split())).hexdigest()
         
-        print "Created reference (MR: %s\tDOI: %s)" % (self.ref_mr, self.ref_doi)
+        #print "Created reference (MR: %s\tDOI: %s)" % (self.ref_mr, self.ref_doi)
         
     def _existDOI(self, bibstr):
         '''If DOI exists in bibstr, return True.  Otherwise, return False'''
@@ -236,7 +236,7 @@ class RefObj(object):
         lines[-1] = lines[-1] + "\n\n"
         return ''.join(lines)
 
-    def fetchMR(self, mode=2, dataType="bibtex"):
+    def fetchMR(self, mode=2, dataType="amsrefs"):
         """Fetch MR reference from ams.org
         
         modes:
@@ -245,31 +245,30 @@ class RefObj(object):
         2: use AMS only when no existing value else existing value
         """
         #Use query module
-        
         self.query = query.QueryMR(self.ref_str, dataType=dataType)
-        logging.debug(self.ref_str)
         logging.debug(self.query)
+        logging.debug(self.ref_str)
         if mode == 1:
-            print "Mode = 1: returning ({})".format(self.ref_mr)
+            logging.info("Mode = 1: returning MR={}\tDOI={}".format(self.ref_mr, self.ref_doi))
             return
         else:
             try:
-                amsmr = self.query.get("MRNUMBER", "")[:7]
-                doicref = self.query.get("DOI", "")
+                amsmr = self.query.get("mr", "")[:7]
+                doicref = self.query.get("doi", "")
                 
                 if mode == 0:
                     logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))
                     self.setMR(amsmr)
                     self.setDOI(doicref)
                 elif mode == 2 and not self.ref_mr:
-                    logging.info("Mode = 1: existing: {}\tsetting MR={}".format(self.ref_mr, amsmr))
+                    logging.info("Mode = 2: existing MR: {}\tsetting MR={}".format(self.ref_mr, amsmr))
                     self.setMR(amsmr)
                 
                 if mode == 2 and not self.ref_doi:
-                    logging.info("Mode = 1: existing: {}\tsetting DOI={}".format(self.ref_doi, doicref))
+                    logging.info("Mode = 2: existing DOI: {}\tsetting DOI={}".format(self.ref_doi, doicref))
                     self.setDOI(doicref)
             except AttributeError:
-                print "No query information"
+                print "No information returned"
             except KeyError:
                 print "No MR number"
 
@@ -285,3 +284,4 @@ class RefObj(object):
                 self.ref_mr = mr.strip()
             else:
                 self.ref_mr = "MR{0}".format(mr.strip())
+            
