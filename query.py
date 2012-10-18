@@ -12,36 +12,47 @@ from xml.etree import cElementTree as cET
 
 import util
 import parser
+import copy
+import ConfigParser
 
-def QueryDOI(refs, email, batch):
+class NoContentError(Exception):
+    pass
+
+def QueryDOI(refs, email, batch, per_file=20):
     """Query DOI references.
     
     Expects a list of reference objects from which it will build a query
     """
     
-    fields = {'author': ("AUTHOR",),
-              'journal_title': ("JOURNAL",),
-              'volume': ("VOLUME",),
-              'first_page': ("PAGES",),
-              'article_title': ("TITLE",),
+    fields = {'author': ("author",),
+              'journal_title': ("journal",),
+              'volume': ("volume",),
+              'first_page': ("pages",),
+              'article_title': ("title",),
               'proceedings_title': ("",),
               'volume_title': ("",),
-              'year': ("YEAR", "DATE"),
-              'isbn': ("ISBN",),
-              'issn': ("ISSN",),
-              'series_title': ("SERIES",),
+              'year': ("year", "date"),
+              'isbn': ("isbn",),
+              'issn': ("issn",),
+              'series_title': ("series",),
               'unstructured_citation': ("",)}
     field_opts = {'author': {'search-all-authors':'false'},
                   'article_title': {'match':'fuzzy'}}
                   
-              
+    root_element = lambda key: cET.Element("query", 
+                                           {'enable-multiple-hits':'multi_hit_per_rule',
+                                            'list-components':'false',
+                                            'expanded-results':'false',
+                                            'key': str(key)})
+    
+    header = cET.Element("query_batch", 
+                         {'xmlns:xsi':'http://www.w3.org/2001/XMLSchema-instance', 
+                          'version':'2.0', 
+                          'xmlns':'http://www.crossref.org/qschema/2.0', 
+                          'xsi:schemaLocation':'http://www.crossref.org/qschema/2.0 http://www.crossref.org/qschema/crossref_query_input2.0.xsd'})
+
               
     def queryElement(element):
-        root_element = cET.Element("query", 
-                            {'enable-multiple-hits':'multi_hit_per_rule',
-                             'list-components':'false',
-                             'expanded-results':'false',
-                             'key': str(ref.ref_key)})
 
         #try to get the query from AMS
         _query = element.query
@@ -50,24 +61,19 @@ def QueryDOI(refs, email, batch):
         if "ISBN" in _query:
             xml_element = cET.Element("ISBN")
         
+        root = root_element(element.ref_key)
         for f, v in fields.iteritems():
             tag = next((i for i, j in enumerate((vel in _query for vel in v)) if j), -1)
             
             if tag > -1:
                 xml_element = cET.Element(f, field_opts.get(f, {}))
-                print _query[v[tag]]
+                #print _query[v[tag]]
                 xml_element.text = util.escape(_query[v[tag]])
-                root_element.append(xml_element)
-        return root_element
-        
-
+                root.append(xml_element)
+        return root
+         
     #generate header
-    header = cET.Element("query_batch", 
-                         {'xmlns:xsi':'http://www.w3.org/2001/XMLSchema-instance', 
-                          'version':'2.0', 
-                          'xmlns':'http://www.crossref.org/qschema/2.0', 
-                          'xsi:schemaLocation':'http://www.crossref.org/qschema/2.0 http://www.crossref.org/qschema/crossref_query_input2.0.xsd'})
-
+    
     tree = cET.TreeBuilder()
     tree.start("head")
     tree.start("email_address")
@@ -79,16 +85,31 @@ def QueryDOI(refs, email, batch):
     tree.end("head")
 
     header.append(tree.close())
-    body = cET.Element("body")
     
+    with ConfigParser.SafeConfigParser() as config:
+        config.read("crossref.cfg")
+        per_file = config.getint("crossref", "queries_per_file")
     
-    for ref in refs:
-        body.append(queryElement(ref))
-    header.append(body)
-
-    return cET.tostring(header, "UTF-8")
-    
-    
+    refs = [refs[i:i+per_file] for i in xrange(0, len(refs), per_file)]
+    for num, chunk in enumerate(refs):
+        h = copy.copy(header)
+        body = cET.Element("body")
+        for ref in chunk:
+            if ref.query and 'doi' not in ref.query:
+                body.append(queryElement(ref))
+            else:
+                #we need to add an unstructured_citation
+                qElem = root_element(ref.ref_key)
+                unstruct_cit = cET.Element("unstructured_citation")
+                unstruct_cit.text = util.detex(ref.ref_str)
+                qElem.append(unstruct_cit)
+                body.append(qElem)
+            
+        h.append(body)
+        
+        with open("{0}_{1}.xml".format(batch, num), 'w') as outFile:
+            print "Writing File ", num
+            outFile.write(cET.tostring(h, "UTF-8"))
 
 def _get_pre_tag(data):
     '''Get the pre tag'''
@@ -98,7 +119,7 @@ def _get_pre_tag(data):
         pretag = data[pre_start:pre_end]
         return pretag
     else:
-        return ""
+        raise NoContentError
     
 def link(data):
     """Parse link data
@@ -177,7 +198,7 @@ def amsrefs(data, first=True):
         
     return ret
     
-def QueryMR(ref, dataType='bibtex'):
+def QueryMR(ref, dataType='amsrefs'):
     """Fetch MR reference from ams.org and return
     
     You can set a preference:
@@ -209,19 +230,16 @@ def QueryMR(ref, dataType='bibtex'):
 
     try:
         result = urlopen(testURL)
-        #self.setMR(self._parse_return_link(result.read()))
-        #print "Original MR: %s -> AMS MR: %s" % (self.ref_mr, self.ref_mr)
         pretag = _get_pre_tag(result.read())
         amsmr = handler[dataType](pretag)
         print "returning ",amsmr
-        return pretag
+        return amsmr
     except URLError, error_msg:
         print "An error has occurred while opening url::", error_msg, testURL
         return
     except KeyError:
         print "Unknown datatype! please use 'amsrefs', 'bibtex', or 'link'"
         return
-        #print testURL
-    except:
-        print "Unknown Error"
+    except NoContentError:
+        print "Looks like I didn't get anything back!"
         return
