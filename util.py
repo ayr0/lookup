@@ -1,6 +1,5 @@
 #Utility functions
 
-
 import os
 import RefObj
 import fileinput
@@ -8,17 +7,27 @@ import itertools
 import ConfigParser
 import string
 
-def getsubst(configFile):
+subs = {r'\&': '&',
+        r"\'": '',
+        r'\"': '',
+        r'\newblock': '',
+        r'\textbf': '', r'\bf': '',
+        r'{': '', r'}': '',
+        r'\emph': '',
+        r'\mathbb': '',
+        r'$': '',
+        r'~': ' '}
+
+def getsubst():
     
     f = ConfigParser.SafeConfigParser()
-    f.read(configFile)
+    f.read("crossref.cfg")
     
-    subst = []
+    global subs
+    
     try:
         for val, sub in f.items('detex'):
-            subst.append((val, sub))
-        subst = tuple(subst)
-        return subst
+            subs[val] = sub
     except ConfigParser.NoSectionError:
         return None
 
@@ -70,7 +79,6 @@ def split_bibitems(bibliography, decomp):
         
         
         for ref in partition(bib, split_ind):
-            print ref
             if ref:
                 refs.append(RefObj.RefObj(filename, refstr='\n'.join(ref), decomp=decomp))
     return refs
@@ -151,13 +159,20 @@ def escape(text):
         text = text.replace(r'>', r'&gt;')
     return text
 
-def detex(subs, tex):
+def detex(tex):
     """Replace the bibtex item.  Assumes no reference numbers and a single reference"""
     
     tex = '\n'.join(reformat(tex, listed=True)[1:])
-    tex = tex.replace("~", " ")
+    global subs
     
-    for old, new in subs:
+    for old, new in subs.iteritems():
         tex = tex.replace(old, new)
     
-    return tex
+    return tex.strip()
+
+def findKey(key, refs):
+    for i, r in enumerate(refs):
+        if key == r.ref_key:
+            return i
+            
+    
