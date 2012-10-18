@@ -3,6 +3,7 @@ __author__ = 'grout'
 import re
 import os
 import ConfigParser
+import cPickle
 from xml.dom import minidom
 from getpass import getpass
 from xml.etree import cElementTree as cET
@@ -11,54 +12,6 @@ import util
 import logging
 
 
-def main(argv):
-    '''kick everything off'''
-    #argv is a argparse Namespace instance
-
-    refs = util.load_bib_lines(argv.files, False)
-
-    if argv.dump is True:
-        debug = logging.DEBUG
-    else:
-        debug = logging.INFO
-        
-    logging.basicConfig(filename="mrquery.log", level=debug, filemode='w')
-
-
-    if argv.autodoi is True:
-        #need to get crossref account info
-        #we look for a config file
-        #or we prompt if no config file is found in current directory
-
-        doi_config = ConfigParser.SafeConfigParser()
-        cref_user, cref_passwd = None, None
-        try:
-            doi_config.read('./crossref.cfg')
-            cref_user = doi_config.get('crossref', 'user')
-            cref_passwd = doi_config.get('crossref', 'password')
-        except ConfigParser.Error:
-            cref_user = raw_input("Crossref Username: ")
-            cref_passwd = getpass()
-        except:
-            print "Unable to verify Crossref account.  Ignoring --auto flag"
-            print "Please create a crossref.cfg file with user name and password"
-            argv.autodoi = False
-            
-        queryDOI(refs, cref_user, cref_passwd, mode=argv.mode, debug=debug)
-    else:
-        #check for the existence of a doi file
-        if os.path.exists(argv.doi):
-            loadDoi(argv.doi, refs)
-        
-
-
-    #Store the reference objects in a list
-    #Loop through each file and get its references
-    #Start the MR reference query
-    if not argv.no_mr:
-        queryMR(refs, mode=argv.mode, debug=debug)
-        
-    writeMRefFile(refs)
 
 def generateFileList(refs):
     """Generate a list of files that had the original references.
@@ -140,14 +93,42 @@ def loadDoi(filename, references):
 
 
 
-def queryMR(references, mode=2, debug=""):
+def queryMR(references, batch, mode=2, debug=""):
     """Fetch the MR references for each reference"""
-    [ref.fetchMR(mode=mode) for ref in references]
+    
+    total = len(references)
+    for i, ref in enumerate(references):
+        print "Reference {}/{}".format(i, total)
+        ref.fetchMR(mode=mode)
+    
+    cPickle.dump(references, open(batch+".pkl", "w"))
+    
 
-def queryDOI(references, user, passwd, mode=2, debug=""):
-    """Fetch the DOI references for each reference"""
-    print user, passwd
-    [ref.fetchDOI(user, passwd, mode=mode) for ref in references]
+def main(argv):
+    '''kick everything off'''
+
+    if argv.dump is True:
+        debug = logging.DEBUG
+    else:
+        debug = logging.INFO
+        
+    logging.basicConfig(filename="mrquery.log", level=debug, filemode='w')
+        
+    if argv.files:
+        refs = util.load_bib_lines(argv.files, decomp=False)
+    else:
+        refs = cPickle.load(argv.batch)
+        
+    if argv.doi:
+        loadDoi(argv.doi, refs)
+        
+    #Store the reference objects in a list
+    #Loop through each file and get its references
+    #Start the MR reference query
+    if not argv.no_mr:
+        queryMR(refs, argv.batch, mode=argv.mode, debug=debug)
+        
+    writeMRefFile(refs) 
 
 
 
@@ -155,8 +136,9 @@ if __name__ == "__main__":
     import argparse
 
     mrargs = argparse.ArgumentParser(description="Lookup MR References from doi")
-    mrargs.add_argument("--autodoi", action="store_true", help="Automatic DOI query (requires Crossref account)")
-    mrargs.add_argument("--doi", metavar='batch', default="", action="store", help="Add DOI references to final output")
+    #mrargs.add_argument("--autodoi", action="store_true", help="Automatic DOI query (requires Crossref account)")
+    mrargs.add_argument("--doi", action="store", default="", help="Add doi from file to batch (if possible)")
+    mrargs.add_argument("--batch", metavar='batch', help="A unique batch name.  If no files specified will load batch.pkl ")
     mrargs.add_argument("--no-mr", action="store_true", help="Don't search for MR record")
     mrargs.add_argument("--mode", action="store", default=2, type=int, help="Query mode: 0 = Always use queried value; 1 = Always use existing value; 2 = Use queried value only when necessary")
     mrargs.add_argument("--dump", action="store_true", help="Dump query results to file (For debugging)")
