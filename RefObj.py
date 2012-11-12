@@ -1,9 +1,6 @@
 __author__ = 'grout'
 
 import hashlib
-from urllib import urlencode, quote
-from urllib2 import urlopen, URLError
-from xml.dom import minidom
 import logging
 
 import util
@@ -253,7 +250,7 @@ class RefObj(object):
             return
         else:
             try:
-                amsmr = self.query.get("mr", "")[:7]
+                amsmr = self.query.get("mr", "")
                 doicref = self.query.get("doi", "")
                 
                 if mode == 0:
@@ -268,9 +265,9 @@ class RefObj(object):
                     logging.info("Mode = 2: existing DOI: {}\tsetting DOI={}".format(self.ref_doi, doicref))
                     self.setDOI(doicref)
             except AttributeError:
-                print "No information returned"
+                pass
             except KeyError:
-                print "No MR number"
+                pass
 
     def setDOI(self, doi):
         """Setter for DOI reference number"""
@@ -282,6 +279,4 @@ class RefObj(object):
         if isinstance(mr, str):
             if mr.startswith("MR"):
                 self.ref_mr = mr.strip()
-            else:
-                self.ref_mr = "MR{0}".format(mr.strip())
             
