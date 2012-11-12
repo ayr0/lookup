@@ -4,12 +4,30 @@ Created on Aug 1, 2012
 @author: grout
 
 Functions necessary for reference querying.  All queries pass through here
+
+This code uses the Requests library to POST xml files to Crossref.
+--------------Requests License----------------------------
+Copyright (c) 2012 Kenneth Reitz.
+
+Permission to use, copy, modify, and/or distribute this software for any 
+purpose with or without fee is hereby granted, provided that the above 
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OF PERFORMANCE OF THIS SOFTWARE.
+------------------------------------------------------------
 '''
 
-from urllib import urlencode, quote
+from urllib import quote
 from urllib2 import urlopen, URLError
 from xml.etree import cElementTree as cET
-
+import logging
+import requests
 import util
 import parser
 import copy
@@ -18,7 +36,7 @@ import ConfigParser
 class NoContentError(Exception):
     pass
 
-def QueryDOI(refs, email, batch, per_file=20):
+def QueryDOI(refs, batch):
     """Query DOI references.
     
     Expects a list of reference objects from which it will build a query
@@ -70,9 +88,26 @@ def QueryDOI(refs, email, batch, per_file=20):
                 #print _query[v[tag]]
                 xml_element.text = util.escape(_query[v[tag]])
                 root.append(xml_element)
+        logging.debug(cET.tostring(root, "UTF-8"))
         return root
          
     #generate header
+    
+    config = ConfigParser.SafeConfigParser()
+    with open("crossref.cfg", 'r') as fp:
+        config.readfp(fp)
+        try:
+            per_file = config.getint("crossref", "queries_per_file")
+        except ConfigParser.NoSectionError:
+            pass
+        except ConfigParser.NoOptionError:
+            per_file = 20
+            
+        try:
+            email = config.get("crossref", "email")
+        except:
+            raise NoContentError("Need an email address to make XML Queries for Crossref")
+
     
     tree = cET.TreeBuilder()
     tree.start("head")
@@ -86,16 +121,16 @@ def QueryDOI(refs, email, batch, per_file=20):
 
     header.append(tree.close())
     
-    with ConfigParser.SafeConfigParser() as config:
-        config.read("crossref.cfg")
-        per_file = config.getint("crossref", "queries_per_file")
+    
+            
     
     refs = [refs[i:i+per_file] for i in xrange(0, len(refs), per_file)]
+    file_list = []
     for num, chunk in enumerate(refs):
         h = copy.copy(header)
         body = cET.Element("body")
         for ref in chunk:
-            if ref.query and 'doi' not in ref.query:
+            if hasattr(ref, 'query') and 'doi' not in ref.query:
                 body.append(queryElement(ref))
             else:
                 #we need to add an unstructured_citation
@@ -107,17 +142,38 @@ def QueryDOI(refs, email, batch, per_file=20):
             
         h.append(body)
         
-        with open("{0}_{1}.xml".format(batch, num), 'w') as outFile:
+        file_list.append("{0}_{1}.xml".format(batch, num))
+        with open(file_list[-1], 'w') as outFile:
             print "Writing File ", num
             outFile.write(cET.tostring(h, "UTF-8"))
-
+    return file_list
+            
+def POST(post_files):
+    config = ConfigParser.SafeConfigParser()
+    with open('crossref.cfg', 'r') as fp:
+        config.readfp(fp)
+        try:
+            login_id = config.get('crossref', 'login_id')
+            login_passwd = config.get('crossref', 'login_passwd')
+        except:
+            raise NoContentError("In order to POST data, must have login_id and login_passwd defined in crossref.cfg")
+    
+    crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login_id, login_passwd)
+    dat = {'area':'live', 'operation':'doQueryUpload'}
+    for f in post_files:
+        r = requests.post(crossref_url, data=dat, files={f:open(f, 'r')})
+        if r.status_code == 200:
+            print "Uploaded ", f
+        else:
+            print "{} did not upload correctly. {}".format(f, r.reason)
+        
 def _get_pre_tag(data):
     '''Get the pre tag'''
     pre_start = data.find("<pre>") + 5
     pre_end = data.find("</pre>")
     if pre_end != -1:
         pretag = data[pre_start:pre_end]
-        return pretag
+        return pretag.replace('&lt;', '<').replace('&gt;', '>')
     else:
         raise NoContentError
     
@@ -232,14 +288,12 @@ def QueryMR(ref, dataType='amsrefs'):
         result = urlopen(testURL)
         pretag = _get_pre_tag(result.read())
         amsmr = handler[dataType](pretag)
-        print "returning ",amsmr
         return amsmr
     except URLError, error_msg:
         print "An error has occurred while opening url::", error_msg, testURL
-        return
+        return {}
     except KeyError:
         print "Unknown datatype! please use 'amsrefs', 'bibtex', or 'link'"
-        return
+        return {}
     except NoContentError:
-        print "Looks like I didn't get anything back!"
-        return
+        return {}
