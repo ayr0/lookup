@@ -14,13 +14,10 @@ def generateFileList(refs):
 
     The filename that contains a given reference is stored in the reference object.
     If we did a DOI query, there is no need to give files to mrquery"""
-    files = []
+    files = set()
     for ref in refs:
-        if ref.ref_file not in files:
-            files.append(ref.ref_file)
-        else:
-            continue
-    return files
+        files.add(ref.ref_file)
+    return list(files)
 
 def writeMRefFile(references):
     """Write the references to another file."""
@@ -73,21 +70,34 @@ def loadDoi(filename, references):
 
 
     #print "keys length %i" % len(keys)
+    #build dictionary of references for faster lookup
+    ref_dict = {}
+    for ref in references:
+        ref_dict[ref.ref_key] = ref
+    
+    s = 0
     for key in keys:
         if key.hasAttribute('key'):
             refkey = key.getAttribute('key')
-        else:
-            continue
+            refdoi = key.getElementsByTagName('doi')
+            if refdoi:
+                newdoi = refdoi[0].childNodes[0].nodeValue
+                ref_dict[refkey].setDOI(newdoi)
+                s += 1
 
         #search for matching key in references
-        for ref in references:
-            if ref.ref_key == refkey:
-                refdoi = key.getElementsByTagName('doi')
-                if refdoi:
-                    newdoi = refdoi[0].childNodes[0].nodeValue
-                    ref.ref_doi = newdoi
+#        s = 0
+#        
+#        for ref in references:
+#            if ref.ref_key == refkey:
+#                refdoi = key.getElementsByTagName('doi')
+#                if refdoi:
+#                    newdoi = refdoi[0].childNodes[0].nodeValue
+#                    ref.setDOI(newdoi)
+#                    s += 1
+#                    #ref.ref_doi = newdoi
     
-    print "Successfully set DOI references"
+    print "Successfully set DOI for {} references".format(s)
 
 
 

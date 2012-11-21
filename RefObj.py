@@ -12,10 +12,13 @@ class RefObj(object):
         self.attrs = attrs
         self.ref_file = filename
         refstr = util.removeComments(refstr)
+        refstrlist = util.reformat(refstr, listed=True)
         
-        doi_data = self._removeDOI(refstr)
+        
+        doi_data = self._removeDOI(refstrlist[0])
         mr_data = self._removeMR(doi_data[0])
-        self.ref_str = mr_data[0]
+        refstrlist[0] = mr_data[0]
+        self.ref_str = '\n'.join(refstrlist)
         
         self.ref_mr = mr_data[1]
         self.ref_doi = doi_data[1]
@@ -57,7 +60,6 @@ class RefObj(object):
 
         #We need to strip the doi reference before query
         #DOI references always begin with '10.'
-
         doi1 = bibstr.find("[10.")
         doi2 = bibstr.find("[doi:10.")
         doiend = bibstr.find("]")+1
@@ -90,97 +92,6 @@ class RefObj(object):
             bibstr = bibstr.replace(bibstr[mrstart2:mrend], "")
 
         return bibstr, mrstr[1:-1]
-
-
-    
-    def _dcomp(self):
-        """Decompose  reference if needed into a dictionary containing:
-        {Author:*, Title:*, Journal:*, IssueN:*, FirstPage:,}
-        """
-
-        def tsplit(s, sep):
-            stack = [s]
-            for char in sep:
-                pieces = []
-                for substr in stack:
-                    pieces.extend(substr.split(char))
-                    stack = pieces
-            return stack
-
-        def getNums(s):
-            """Return a list of numbers found in the string"""
-
-            nums = []
-            s = s.center(len(s)+2)
-            bs, es = None, None
-            for i,c in enumerate(s):
-                if c.isdigit():
-                    if bs is None:
-                        bs=es=i
-                    else:
-                        es = i+1 if i+1 != len(s) else -1
-                    if not s[es].isdigit():
-                        nums.append(int(s[bs:es]))
-                else:
-                    bs, es = None, None
-            return nums
-
-        decomp = {}
-        reflines = [l.strip() for l in self.ref_str.split(r'\newblock')]
-        #reflines = self.ref_str.splitlines()
-        #reflines = [line.strip() for line in reflines]
-
-        #remove any comment lines
-        #reflines = [l[:l.find("%")] for l in reflines]
-        #remove empty lines
-        reflines = [l for l in reflines if l]
-
-        #Author(s)
-        #author = reflines[1].replace(r'\newblock', '').strip()
-        decomp['author'] = tsplit(reflines[1], (',', ' and '))#[:-1]
-
-        #Title
-        title = reflines[2]#.replace(r'\newblock', '').strip()
-
-        bslice = 0
-        eslice = 0
-        #is there an \emph{
-        if title.startswith(r'\emph{'):
-            bslice = 6
-            eslice = title.rfind('}')
-        elif title.startswith(r'``'):
-            bslice = 2
-            eslice = title.rfind("''")
-            e2slice = title.rfind('"')
-            eslice = eslice if eslice >= e2slice else e2slice
-            decomp['type'] = 'volume'
-        decomp['article_title'] = title[bslice:eslice]
-
-        #Third newblock
-        other = reflines[3]#.replace(r'\newblock', '')
-        other = other.split(',')
-        decomp['title'] = other[0].strip()
-
-        if other[0].lower().find('Proc.') > 0:
-            decomp['type'] = 'proceedings'
-        else:
-            decomp['type'] = 'journal'
-
-
-        if other[1].find(r'\textbf') or other[1].find(r'{\bf'):
-            vol, year = getNums(other[1])
-            decomp['volume']=vol
-            decomp['year']=year
-
-
-        try:
-            fp, lp = getNums(other[-1])
-            decomp['first_page']=fp
-            decomp['last_page']=lp
-        except ValueError:
-            pass
-
-        return decomp
 
     def addRefs(self, mr=True, doi=True):
 
@@ -252,6 +163,8 @@ class RefObj(object):
             try:
                 amsmr = self.query.get("mr", "")
                 doicref = self.query.get("doi", "")
+                print "What I got from MRQUERY",amsmr, doicref
+                print "This is already there", self.ref_mr, self.ref_doi
                 
                 if mode == 0:
                     logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))

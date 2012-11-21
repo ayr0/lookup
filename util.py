@@ -52,7 +52,7 @@ def load_bib_lines(filenames, decomp=True):
             fileinput.nextfile()
         
         if bibsection == 1:
-            if not line.isspace():
+            if not line.isspace() and not line.startswith('%'):
                 try:
                     line = line.decode("ascii")
                     bibitems.append(line.strip())
