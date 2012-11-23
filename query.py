@@ -29,7 +29,7 @@ from xml.etree import cElementTree as cET
 import logging
 import requests
 import util
-import parser
+import rparser
 import copy
 import ConfigParser
 
@@ -193,7 +193,7 @@ def bibtex(data, first=True):
     return dictionary of fields"""
     
     ret = {}
-    s = parser.Parser(data)
+    s = rparser.Parser(data)
     
     s.nextLiteral("@")
     s.nextWord()
@@ -223,7 +223,7 @@ def amsrefs(data, first=True):
     
     compound = ['book', 'conference', 'partial', 'reprint', 'translation']
     ret = {}
-    s = parser.Parser(data)
+    s = rparser.Parser(data)
     
     s.nextLiteral(r'\bib')
     ret["mr"] = s.nextBrace()

@@ -163,8 +163,6 @@ class RefObj(object):
             try:
                 amsmr = self.query.get("mr", "")
                 doicref = self.query.get("doi", "")
-                print "What I got from MRQUERY",amsmr, doicref
-                print "This is already there", self.ref_mr, self.ref_doi
                 
                 if mode == 0:
                     logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))
