@@ -121,7 +121,7 @@ def main(argv):
     logging.basicConfig(filename=argv.batch+".log", level=debug, filemode='w')
         
     if argv.files:
-        refs = util.load_bib_lines(argv.files, decomp=False)
+        refs = util.load_bib_lines(argv.files)
     else:
         refs = cPickle.load(open(argv.batch, 'rb'))
         

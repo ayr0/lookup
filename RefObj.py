@@ -7,13 +7,11 @@ import util
 import query
 
 class RefObj(object):
-    def __init__(self, filename, refstr="", decomp=False, **attrs):
+    def __init__(self, filename, refstr="", **attrs):
     
         self.attrs = attrs
         self.ref_file = filename
-        refstr = util.removeComments(refstr)
         refstrlist = util.reformat(refstr, listed=True)
-        
         
         doi_data = self._removeDOI(refstrlist[0])
         mr_data = self._removeMR(doi_data[0])
@@ -153,13 +151,15 @@ class RefObj(object):
         2: use AMS only when no existing value else existing value
         """
         #Use query module
-        self.query = query.QueryMR(self.ref_str, dataType=dataType)
-        logging.debug(self.query)
-        logging.debug(self.ref_str)
+
         if mode == 1:
             logging.info("Mode = 1: returning MR={}\tDOI={}".format(self.ref_mr, self.ref_doi))
             return
         else:
+            self.query = query.QueryMR(self.ref_str, dataType=dataType)
+            logging.debug(self.query)
+            logging.debug(self.ref_str)
+            
             try:
                 amsmr = self.query.get("mr", "")
                 doicref = self.query.get("doi", "")

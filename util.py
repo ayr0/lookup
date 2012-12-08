@@ -31,7 +31,7 @@ def getsubst():
     except ConfigParser.NoSectionError:
         return None
 
-def load_bib_lines(filenames, decomp=True):
+def load_bib_lines(filenames):
     """Load *.tex files and read them line by line.
     This method only loads the bibliography section and checks for ascii"""
     
@@ -52,10 +52,12 @@ def load_bib_lines(filenames, decomp=True):
             fileinput.nextfile()
         
         if bibsection == 1:
-            if not line.isspace() and not line.startswith('%'):
+            if not line.isspace():
                 try:
                     line = line.decode("ascii")
-                    bibitems.append(line.strip())
+                    candline = removeComment(line.strip())
+                    if candline:
+                        bibitems.append(candline)
                 except UnicodeDecodeError:
                     print "Special Character on line {0} in file {1}".format(fileinput.filelineno(), fileinput.filename())
                     print line
@@ -66,9 +68,10 @@ def load_bib_lines(filenames, decomp=True):
         print "{0} errors detected.  Received non-ASCII input".format(biberrors)
         #return an empty list so we don't process bad output
         return []
-    return split_bibitems(bibliography, decomp)
+    print bibliography
+    return split_bibitems(bibliography)
     
-def split_bibitems(bibliography, decomp):
+def split_bibitems(bibliography):
     
     refs = []
     for filename, bib in bibliography.iteritems():
@@ -76,11 +79,10 @@ def split_bibitems(bibliography, decomp):
         for ind, item in enumerate(bib):
             if item.startswith(r"\bibitem"):
                 split_ind.append(ind)
-        
-        
+                
         for ref in partition(bib, split_ind):
             if ref:
-                refs.append(RefObj.RefObj(filename, refstr='\n'.join(ref), decomp=decomp))
+                refs.append(RefObj.RefObj(filename, refstr='\n'.join(ref)))
     return refs
 
 def partition(alist, indices):
@@ -88,28 +90,18 @@ def partition(alist, indices):
     pairs = izip(chain([0], indices), chain(indices, [None]))
     return (alist[i:j] for i, j in pairs)
      
-def removeComments(rstr, join=True):
-    if isinstance(rstr, str):
-        rlines = rstr.splitlines()
-    else:
-        rlines = rstr
-    newref = []
-    for s in rlines:
-        c = 0
-        strlen = len(s)
-        while (c < strlen):
-            occ = s.find('%', c)
-            if occ == -1:
-                c = strlen
-                break
-            elif occ > 0 and s[occ-1] == '\\':
-                c = occ + 1
-            else:
-                c = occ
-                break
-        newref.append(s[:c])
-    return ''.join(newref) if join else newref
-            
+def removeComment(line):
+    """Given a line of text, remove everything after the first non-escaped %"""
+    ind = line.find('%')
+    while True:
+        if ind < 0:
+            return line
+        elif (ind > 0 and line[ind-1] != '\\') or ind == 0:
+            break
+        else:
+            ind = line.find('%', ind+1)
+    return line[:ind]
+        
 def splitAuthor(authors, sep='and', first=True):
     """Split string authors into a list of authors
     based on sep and return the first author only if first is True
