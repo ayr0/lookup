@@ -31,12 +31,11 @@ import requests
 import util
 import rparser
 import copy
-import ConfigParser
 
 class NoContentError(Exception):
     pass
 
-def QueryDOI(refs, batch):
+def QueryDOI(refs, batch, cross_opts):
     """Query DOI references.
     
     Expects a list of reference objects from which it will build a query
@@ -54,11 +53,12 @@ def QueryDOI(refs, batch):
               'issn': ("issn",),
               'series_title': ("series",),
               'unstructured_citation': ("",)}
-    field_opts = {'author': {'search-all-authors':'false'},
+    field_opts = {'author': {'search-all-authors':'true'},
                   'article_title': {'match':'fuzzy'}}
                   
     root_element = lambda key: cET.Element("query", 
                                            {'enable-multiple-hits':'multi_hit_per_rule',
+                                            'secondary-query':'author-title',
                                             'list-components':'false',
                                             'expanded-results':'false',
                                             'key': str(key)})
@@ -75,9 +75,6 @@ def QueryDOI(refs, batch):
         #try to get the query from AMS
         _query = element.query
         
-        #if element is a book
-        if "ISBN" in _query:
-            xml_element = cET.Element("ISBN")
         
         root = root_element(element.ref_key)
         for f, v in fields.iteritems():
@@ -85,34 +82,16 @@ def QueryDOI(refs, batch):
             
             if tag > -1:
                 xml_element = cET.Element(f, field_opts.get(f, {}))
-                #print _query[v[tag]]
                 xml_element.text = util.escape(_query[v[tag]])
                 root.append(xml_element)
         logging.debug(cET.tostring(root, "UTF-8"))
         return root
          
-    #generate header
-    
-    config = ConfigParser.SafeConfigParser()
-    with open("crossref.cfg", 'r') as fp:
-        config.readfp(fp)
-        try:
-            per_file = config.getint("crossref", "queries_per_file")
-        except ConfigParser.NoSectionError:
-            pass
-        except ConfigParser.NoOptionError:
-            per_file = 20
-            
-        try:
-            email = config.get("crossref", "email")
-        except:
-            raise NoContentError("Need an email address to make XML Queries for Crossref")
-
-    
+    #generate a header    
     tree = cET.TreeBuilder()
     tree.start("head")
     tree.start("email_address")
-    tree.data(email.strip())
+    tree.data(cross_opts['email'].strip())
     tree.end("email_address")
     tree.start("doi_batch_id")
     tree.data(batch.strip())
@@ -121,16 +100,20 @@ def QueryDOI(refs, batch):
 
     header.append(tree.close())
     
-    
-            
-    
-    refs = [refs[i:i+per_file] for i in xrange(0, len(refs), per_file)]
+    if cross_opts.get('query_all', 'False') == 'True':
+        query_refs = refs
+    else:
+        query_refs = [r for r in refs if r.ref_doi]
+        
+    num_query = len(query_refs)       
+    per_file = int(cross_opts['queries_per_file'])
+    query_refs = [query_refs[i:i+per_file] for i in xrange(0, len(query_refs), per_file)]
     file_list = []
-    for num, chunk in enumerate(refs):
+    for num, chunk in enumerate(query_refs):
         h = copy.copy(header)
         body = cET.Element("body")
         for ref in chunk:
-            if hasattr(ref, 'query') and 'doi' not in ref.query:
+            if ref.query != {}:
                 body.append(queryElement(ref))
             else:
                 #we need to add an unstructured_citation
@@ -139,26 +122,18 @@ def QueryDOI(refs, batch):
                 unstruct_cit.text = util.detex(ref.ref_str)
                 qElem.append(unstruct_cit)
                 body.append(qElem)
-            
+        
         h.append(body)
         
         file_list.append("{0}_{1}.xml".format(batch, num))
         with open(file_list[-1], 'w') as outFile:
             print "Writing File ", num
             outFile.write(cET.tostring(h, "UTF-8"))
+    print "Queried {}/{} references".format(num_query, len(refs))
     return file_list
             
-def POST(post_files):
-    config = ConfigParser.SafeConfigParser()
-    with open('crossref.cfg', 'r') as fp:
-        config.readfp(fp)
-        try:
-            login_id = config.get('crossref', 'login_id')
-            login_passwd = config.get('crossref', 'login_passwd')
-        except:
-            raise NoContentError("In order to POST data, must have login_id and login_passwd defined in crossref.cfg")
-    
-    crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login_id, login_passwd)
+def POST(post_files, login, passwd):
+    crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login, passwd)
     dat = {'area':'live', 'operation':'doQueryUpload'}
     for f in post_files:
         r = requests.post(crossref_url, data=dat, files={f:open(f, 'r')})

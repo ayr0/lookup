@@ -6,6 +6,7 @@ from xml.dom import minidom
 import util
 import query
 import logging
+import ConfigParser
 
 
 
@@ -24,10 +25,12 @@ def writeMRefFile(references):
 
     files = generateFileList(references)
     for f in files:
-        with open("%s_refs.tex" % os.path.splitext(f)[0], "w") as ofile:
+        fname = "{}_refs.tex".format(os.path.splitext(f)[0])
+        with open(fname, "w") as ofile:
             for ref in references:
                 if ref.ref_file == f:
                     ofile.write('%s\n\n' % util.reformat(ref.addRefs()))
+        print "Wrote to ", fname
 
 def loadDoi(filename, references):
     """Load <batch>_doi.xml"""
@@ -53,12 +56,11 @@ def loadDoi(filename, references):
     with open(full_path, 'r') as input:
         with open(os.path.join(path,"tmp"+filename), 'w') as output:
             for line in input:
-                output.write(line.replace(r'&', r'&amp;'))
+                output.write(unescape(line))
     os.remove(full_path)
     os.rename(os.path.join(path, "tmp"+filename), os.path.join(path, filename))
     #Lets load the DOI.  First we assume unixref
     doc = minidom.parse(full_path)
-    format = None
     if doc.hasChildNodes():
         if doc.childNodes[0].nodeName == "doi_records":
             keys = doc.getElementsByTagName('doi_record')
@@ -69,35 +71,28 @@ def loadDoi(filename, references):
         print "Invalid result file ... ignoring %s" % filename
 
 
-    #print "keys length %i" % len(keys)
     #build dictionary of references for faster lookup
     ref_dict = {}
     for ref in references:
         ref_dict[ref.ref_key] = ref
     
     s = 0
+    ndoi = 0
     for key in keys:
         if key.hasAttribute('key'):
             refkey = key.getAttribute('key')
             refdoi = key.getElementsByTagName('doi')
             if refdoi:
-                newdoi = refdoi[0].childNodes[0].nodeValue
-                ref_dict[refkey].setDOI(newdoi)
+                newdoi = refdoi[0].childNodes[0].nodeValue.strip()
+                _ref = ref_dict[refkey]
+                #print "{} -> {}".format(_ref.ref_doi, newdoi)
+                if _ref.ref_doi != newdoi:
+                    print "{} -- {}".format(_ref.ref_doi, newdoi)
+                    _ref.setDOI(newdoi)
+                    ndoi += 1
                 s += 1
-
-        #search for matching key in references
-#        s = 0
-#        
-#        for ref in references:
-#            if ref.ref_key == refkey:
-#                refdoi = key.getElementsByTagName('doi')
-#                if refdoi:
-#                    newdoi = refdoi[0].childNodes[0].nodeValue
-#                    ref.setDOI(newdoi)
-#                    s += 1
-#                    #ref.ref_doi = newdoi
     
-    print "Successfully set DOI for {} references".format(s)
+    print "Successfully set new DOI for {} references, {} of which did not match AMS".format(s, ndoi)
 
 
 
@@ -136,13 +131,20 @@ def main(argv):
     else:
         response = raw_input("Should I generate Crossref XML queries (y/n)? ")
         if response.lower() == 'y':
-            file_list = query.QueryDOI(refs, argv.batch)
+            #get crossref config
+            config = ConfigParser.SafeConfigParser()
+            config.read("crossref.cfg")
+            cross_cfg = {o:v for o, v in config.items("crossref")}
+            
+            file_list = query.QueryDOI(refs, argv.batch, cross_cfg)
             response = raw_input("Should I upload to Crossref right now (y/n)? ")
             if response.lower() == 'y':
-                query.POST(file_list)
+                query.POST(file_list, cross_cfg['login_id'], cross_cfg['login_passwd'])
     
-    cPickle.dump(refs, open(argv.batch+".pkl", 'w'))
+    print "\nSaving batch to file:", argv.batch
+    cPickle.dump(refs, open(argv.batch, 'wb'))
     writeMRefFile(refs) 
+    print "Log written to: {}.log".format(argv.batch)
     
 
 

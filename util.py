@@ -31,6 +31,15 @@ def getsubst():
     except ConfigParser.NoSectionError:
         return None
 
+def expandFilenames(filenames):
+    """Expand relative filenames to absolute paths"""
+    
+    abs_filenames = []
+    for f in filenames:
+        abs_filenames.append(os.path.abspath(f))
+    
+    return abs_filenames
+
 def load_bib_lines(filenames):
     """Load *.tex files and read them line by line.
     This method only loads the bibliography section and checks for ascii"""
@@ -38,8 +47,10 @@ def load_bib_lines(filenames):
     bibliography = {}
     bibsection = 0
     biberrors = 0
+    filenames = expandFilenames(filenames)
     for line in fileinput.input(filenames):
         #iterate until we get to a bibitem section
+        line = line.strip()
         if line.startswith(r"\begin{thebibliography}"):
             #mark lines
             bibitems = []
@@ -55,7 +66,7 @@ def load_bib_lines(filenames):
             if not line.isspace():
                 try:
                     line = line.decode("ascii")
-                    candline = removeComment(line.strip())
+                    candline = removeComment(line)
                     if candline:
                         bibitems.append(candline)
                 except UnicodeDecodeError:
@@ -68,7 +79,7 @@ def load_bib_lines(filenames):
         print "{0} errors detected.  Received non-ASCII input".format(biberrors)
         #return an empty list so we don't process bad output
         return []
-    print bibliography
+    
     return split_bibitems(bibliography)
     
 def split_bibitems(bibliography):

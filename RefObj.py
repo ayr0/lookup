@@ -2,14 +2,12 @@ __author__ = 'grout'
 
 import hashlib
 import logging
-
 import util
 import query
 
 class RefObj(object):
-    def __init__(self, filename, refstr="", **attrs):
+    def __init__(self, filename, refstr=""):
     
-        self.attrs = attrs
         self.ref_file = filename
         refstrlist = util.reformat(refstr, listed=True)
         
@@ -21,16 +19,13 @@ class RefObj(object):
         self.ref_mr = mr_data[1]
         self.ref_doi = doi_data[1]
         self.ref_key = hashlib.sha256(''.join(self.ref_str.split())).hexdigest()
-        
-        #print "Created reference (MR: %s\tDOI: %s)" % (self.ref_mr, self.ref_doi)
-        
+                
     def _existDOI(self, bibstr):
         '''If DOI exists in bibstr, return True.  Otherwise, return False'''
         
         doistr = util.reformat(bibstr, listed=True)[0]
         doistr = self._removeDOI(doistr)[1]
         if doistr:
-            #print "Using existing DOI number", doistr
             self.setDOI(doistr)
 
         return doistr
@@ -42,7 +37,6 @@ class RefObj(object):
         mrstr = util.reformat(bibstr, listed=True)[0]
         mrstr = self._removeMR(mrstr)[1]
         if mrstr:
-            #print "Using existing MR number",mrstr
             self.setMR(mrstr)
 
         return mrstr
