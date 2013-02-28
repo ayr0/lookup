@@ -29,6 +29,7 @@ from xml.etree import cElementTree as cET
 import logging
 import requests
 import util
+import proc
 import rparser
 import copy
 
@@ -53,6 +54,10 @@ def QueryDOI(refs, batch, cross_opts):
               'issn': ("issn",),
               'series_title': ("series",),
               'unstructured_citation': ("",)}
+    
+    field_processors = {'first_page': proc.firstpage,
+                        'issn': proc.issn}
+    
     field_opts = {'author': {'search-all-authors':'true'},
                   'article_title': {'match':'fuzzy'}}
                   
@@ -82,7 +87,11 @@ def QueryDOI(refs, batch, cross_opts):
             
             if tag > -1:
                 xml_element = cET.Element(f, field_opts.get(f, {}))
-                xml_element.text = util.escape(_query[v[tag]])
+                qtext = util.escape(_query[v[tag]])
+                if f in field_processors:
+                    xml_element.text = field_processors[f](qtext)
+                else:
+                    xml_element.text = qtext
                 root.append(xml_element)
         logging.debug(cET.tostring(root, "UTF-8"))
         return root

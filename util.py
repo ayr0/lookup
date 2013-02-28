@@ -139,9 +139,6 @@ def reformat(refstr, listed=False):
         else:
             return '\n'.join(formatted)
 
-def firstpage(pages):
-    """Extract first page number from the PAGES field"""
-    return pages[:pages.find('--')]
 
 def escape(text):
     """Escape illegal XML characters
@@ -162,6 +159,26 @@ def escape(text):
         text = text.replace(r'>', r'&gt;')
     return text
 
+def unescape(text):
+    """Unescape illegal XML characters
+
+    &amp -> &;
+    &lt -> <;
+    &gt -> >;
+    """
+    if isinstance(text, list):
+        for i, t in enumerate(text):
+            t = t.replace(r'&amp;', r'&')
+            t = t.replace(r'&lt;', r'<')
+            t = t.replace(r'&gt;', r'>')
+            text[i] = t
+    else:
+        text = text.replace(r'&amp;', r'&')
+        text = text.replace(r'&lt;', r'<')
+        text = text.replace(r'&gt;', r'>')
+    return text
+    
+
 def detex(tex):
     """Replace the bibtex item.  Assumes no reference numbers and a single reference"""
     
@@ -172,10 +189,36 @@ def detex(tex):
         tex = tex.replace(old, new)
     
     return tex.strip()
-
-def findKey(key, refs):
-    for i, r in enumerate(refs):
-        if key == r.ref_key:
-            return i
             
+def sanitizeXML(filename):
+    def unescape(string):
+        """Unescape XML string
+
+        &lt; -> <
+        &gt; -> >
+        &amp; -> &
+        """
+
+        #string = string.replace(r'&lt;', r'<')
+        #string = string.replace(r'&gt;', r'>')
+        #string = string.replace(r'&amp;', r'&')
+        
+        string = string.replace('<', '&lt;')
+        string = string.replace('>', '&rt;')
+        string = string.replace('&', '&amp;')
+
+        return string
+
+    #we have to remove all illegal characters from crossref xml
+    full_path = os.path.abspath(filename)
+    path, filename = os.path.split(full_path)
+    with open(full_path, 'r') as input:
+        with open(os.path.join(path,"tmp"+filename), 'w') as output:
+            for line in input:
+                output.write(line.replace(r'&', r'&amp;'))
+    os.remove(full_path)
+    os.rename(os.path.join(path, "tmp"+filename), os.path.join(path, filename))
+    
+    return full_path
+    
     

@@ -32,34 +32,13 @@ def writeMRefFile(references):
                     ofile.write('%s\n\n' % util.reformat(ref.addRefs()))
         print "Wrote to ", fname
 
-def loadDoi(filename, references):
+def loadDoi(filename):
     """Load <batch>_doi.xml"""
     #refs = load_bib_blocks(file)
 
-    def unescape(string):
-        """Unescape XML string
 
-        &lt; -> <
-        &gt; -> >
-        &amp; -> &
-        """
-
-        string = string.replace(r'&lt;', r'<')
-        string = string.replace(r'&gt;', r'>')
-        string = string.replace(r'&amp;', r'&')
-
-        return string
-
-    #we have to remove all illegal characters from crossref xml
-    full_path = os.path.abspath(filename)
-    path, filename = os.path.split(full_path)
-    with open(full_path, 'r') as input:
-        with open(os.path.join(path,"tmp"+filename), 'w') as output:
-            for line in input:
-                output.write(unescape(line))
-    os.remove(full_path)
-    os.rename(os.path.join(path, "tmp"+filename), os.path.join(path, filename))
     #Lets load the DOI.  First we assume unixref
+    full_path = util.sanitizeXML(filename)
     doc = minidom.parse(full_path)
     if doc.hasChildNodes():
         if doc.childNodes[0].nodeName == "doi_records":
@@ -71,28 +50,65 @@ def loadDoi(filename, references):
         print "Invalid result file ... ignoring %s" % filename
 
 
+    #build a dictionary of the keys that have doi
+    doi_keys = {}
+    for key in keys:
+        try:
+            refkey = key.getAttribute("key")
+            refdoi = key.getElementsByTagName("doi")
+            if refdoi:
+                newdoi = refdoi[0].childNodes[0].nodeValue.strip()
+                doi_keys[refkey] = util.unescape(newdoi)
+        except AttributeError:
+            continue
+    return doi_keys
+
+def insertDoi(files, references):
+    files = [os.path.abspath(x.strip()) for x in files.split(',')]
+    
     #build dictionary of references for faster lookup
     ref_dict = {}
     for ref in references:
         ref_dict[ref.ref_key] = ref
     
-    s = 0
-    ndoi = 0
-    for key in keys:
-        if key.hasAttribute('key'):
-            refkey = key.getAttribute('key')
-            refdoi = key.getElementsByTagName('doi')
-            if refdoi:
-                newdoi = refdoi[0].childNodes[0].nodeValue.strip()
-                _ref = ref_dict[refkey]
-                #print "{} -> {}".format(_ref.ref_doi, newdoi)
-                if _ref.ref_doi != newdoi:
-                    print "{} -- {}".format(_ref.ref_doi, newdoi)
-                    _ref.setDOI(newdoi)
-                    ndoi += 1
-                s += 1
+    #build the doi dictionary
+    doi_dict = {}
+    for f in files:
+        doi_dict.update(loadDoi(f))
+        
+        
+    #print ref_dict
+    #print "-----------------------------------------------------------------"
+    #print doi_dict
     
-    print "Successfully set new DOI for {} references, {} of which did not match AMS".format(s, ndoi)
+    added_doi = 0
+    different_doi = 0
+    for key, doi in doi_dict.iteritems():
+        _ref = ref_dict[key]
+        if _ref.ref_doi != doi:
+            print "{} --> {}".format(_ref.ref_doi, doi)
+            different_doi += 1
+        _ref.setDOI(doi)
+        added_doi += 1
+    
+    
+#    s = 0
+#    ndoi = 0
+#    for key in keys:
+#        if key.hasAttribute('key'):
+#            refkey = key.getAttribute('key')
+#            refdoi = key.getElementsByTagName('doi')
+#            if refdoi:
+#                newdoi = refdoi[0].childNodes[0].nodeValue.strip()
+#                _ref = ref_dict[refkey]
+#                #print "{} -> {}".format(_ref.ref_doi, newdoi)
+#                if _ref.ref_doi != newdoi:
+#                    print "{} -- {}".format(_ref.ref_doi, newdoi)
+#                    _ref.setDOI(newdoi)
+#                    ndoi += 1
+#                s += 1
+    
+    print "Successfully set new DOI for {} references, {} of which did not match AMS".format(added_doi, different_doi)
 
 
 
@@ -127,7 +143,7 @@ def main(argv):
         queryMR(refs, argv.batch, ref_type=argv.mr_type, mode=argv.mode, debug=debug)
         
     if argv.doi:
-        loadDoi(argv.doi, refs)
+        insertDoi(argv.doi, refs)
     else:
         response = raw_input("Should I generate Crossref XML queries (y/n)? ")
         if response.lower() == 'y':
