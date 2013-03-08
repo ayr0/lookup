@@ -149,12 +149,12 @@ def escape(text):
     """
     if isinstance(text, list):
         for i, t in enumerate(text):
-            t = t.replace(r'&', r'&amp;')
+            t = t.replace(r'\&', r'&amp;')
             t = t.replace(r'<', r'&lt;')
             t = t.replace(r'>', r'&gt;')
             text[i] = t
     else:
-        text = text.replace(r'&', r'&amp;')
+        text = text.replace(r'\&', r'&amp;')
         text = text.replace(r'<', r'&lt;')
         text = text.replace(r'>', r'&gt;')
     return text
@@ -168,12 +168,12 @@ def unescape(text):
     """
     if isinstance(text, list):
         for i, t in enumerate(text):
-            t = t.replace(r'&amp;', r'&')
+            t = t.replace(r'&amp;', r'\&')
             t = t.replace(r'&lt;', r'<')
             t = t.replace(r'&gt;', r'>')
             text[i] = t
     else:
-        text = text.replace(r'&amp;', r'&')
+        text = text.replace(r'&amp;', r'\&')
         text = text.replace(r'&lt;', r'<')
         text = text.replace(r'&gt;', r'>')
     return text
