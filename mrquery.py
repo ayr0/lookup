@@ -157,9 +157,7 @@ if __name__ == "__main__":
     mrargs.add_argument("--mr-type", action="store", default="amsrefs", help="Format to request when querying MR numbers.")
     mrargs.add_argument("--mode", action="store", default=2, type=int, help="Query mode: 0 = Always use queried value; 1 = Always use existing value; 2 = Use queried value only when necessary")
     mrargs.add_argument("--dump", action="store_true", help="Dump query results to file (For debugging)")
-    #mrargs.add_argument("--owritemr", action="store_true", help="Overwrite existing MR references with queried references", default=False)
-    #mrargs.add_argument("--owritedoi", action="store_true", help="Overwrite existing DOI references with queried references", default=False)
-    #mrargs.add_argument("--output", action='store', help="Alternative output filename")
     mrargs.add_argument('files', metavar='files', nargs='*', help='TeX files to process')
+    mrargs.add_argument('--version', action='version', version='20130314')
 
     main(mrargs.parse_args())
