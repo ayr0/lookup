@@ -19,6 +19,7 @@ class RefObj(object):
         self.ref_mr = mr_data[1]
         self.ref_doi = doi_data[1]
         self.ref_key = hashlib.sha256(''.join(self.ref_str.split())).hexdigest()
+        self.query = {}
                 
     def _existDOI(self, bibstr):
         '''If DOI exists in bibstr, return True.  Otherwise, return False'''
@@ -176,12 +177,10 @@ class RefObj(object):
 
     def setDOI(self, doi):
         """Setter for DOI reference number"""
-        if isinstance(doi, str):
-            self.ref_doi = doi.strip()
+        self.ref_doi = doi.strip()
 
     def setMR(self, mr):
         """Setter for MR reference number"""
-        if isinstance(mr, str):
-            if mr.startswith("MR"):
-                self.ref_mr = mr.strip()
+        if mr.startswith("MR"):
+            self.ref_mr = mr.strip()
             

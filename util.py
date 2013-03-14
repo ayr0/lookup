@@ -117,7 +117,6 @@ def splitAuthor(authors, sep='and', first=True):
     """Split string authors into a list of authors
     based on sep and return the first author only if first is True
     """
-    
     tmp = [k.strip() for k in authors.split(sep)]
     if first is True:
         return tmp[0].split(',')[0].strip()
@@ -182,32 +181,27 @@ def unescape(text):
 def detex(tex):
     """Replace the bibtex item.  Assumes no reference numbers and a single reference"""
     
-    tex = '\n'.join(reformat(tex, listed=True)[1:])
+    #tex = '\n'.join(reformat(tex, listed=True)[1:])
     global subs
     
     for old, new in subs.iteritems():
         tex = tex.replace(old, new)
     
     return tex.strip()
+
+def escape_replace(s, old, new, escape='\\'):
+    newstr = []
+    if len(old) == 0:
+        return
+
+    for i, c in enumerate(s):
+        if old[0] == c and s[i-1] != escape:
+            newstr.extend(new)
+        else:
+            newstr.append(c)
+    return ''.join(newstr)
             
 def sanitizeXML(filename):
-    def unescape(string):
-        """Unescape XML string
-
-        &lt; -> <
-        &gt; -> >
-        &amp; -> &
-        """
-
-        #string = string.replace(r'&lt;', r'<')
-        #string = string.replace(r'&gt;', r'>')
-        #string = string.replace(r'&amp;', r'&')
-        
-        string = string.replace('<', '&lt;')
-        string = string.replace('>', '&rt;')
-        string = string.replace('&', '&amp;')
-
-        return string
 
     #we have to remove all illegal characters from crossref xml
     full_path = os.path.abspath(filename)

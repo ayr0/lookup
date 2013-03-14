@@ -75,11 +75,6 @@ def insertDoi(files, references):
     doi_dict = {}
     for f in files:
         doi_dict.update(loadDoi(f))
-        
-        
-    #print ref_dict
-    #print "-----------------------------------------------------------------"
-    #print doi_dict
     
     added_doi = 0
     different_doi = 0
@@ -91,35 +86,21 @@ def insertDoi(files, references):
         _ref.setDOI(doi)
         added_doi += 1
     
-    
-#    s = 0
-#    ndoi = 0
-#    for key in keys:
-#        if key.hasAttribute('key'):
-#            refkey = key.getAttribute('key')
-#            refdoi = key.getElementsByTagName('doi')
-#            if refdoi:
-#                newdoi = refdoi[0].childNodes[0].nodeValue.strip()
-#                _ref = ref_dict[refkey]
-#                #print "{} -> {}".format(_ref.ref_doi, newdoi)
-#                if _ref.ref_doi != newdoi:
-#                    print "{} -- {}".format(_ref.ref_doi, newdoi)
-#                    _ref.setDOI(newdoi)
-#                    ndoi += 1
-#                s += 1
-    
     print "Successfully set new DOI for {} references, {} of which did not match AMS".format(added_doi, different_doi)
-
-
-
+    
 def queryMR(references, batch, ref_type='amsrefs', mode=2, debug=""):
     """Fetch the MR references for each reference"""
     
     total = len(references)
+    doi_refs = 0
     for i, ref in enumerate(references):
         print "Reference {}/{}\tRequesting {}...".format(i, total, ref_type)
         ref.fetchMR(mode=mode, dataType=ref_type)
-        print "{}\t{}".format(ref.ref_mr, ref.ref_doi)    
+        print "{}\t{}".format(ref.ref_mr, ref.ref_doi)
+        if ref.ref_doi:
+            doi_refs += 1   
+    
+    return doi_refs
 
 def main(argv):
     '''kick everything off'''
@@ -140,7 +121,8 @@ def main(argv):
     #Loop through each file and get its references
     #Start the MR reference query
     if not argv.no_mr:
-        queryMR(refs, argv.batch, ref_type=argv.mr_type, mode=argv.mode, debug=debug)
+        doi_refs = queryMR(refs, argv.batch, ref_type=argv.mr_type, mode=argv.mode, debug=debug)
+        print "Fetched {} DOI numbers".format(doi_refs)
         
     if argv.doi:
         insertDoi(argv.doi, refs)
@@ -160,8 +142,7 @@ def main(argv):
     print "\nSaving batch to file:", argv.batch
     cPickle.dump(refs, open(argv.batch, 'wb'))
     writeMRefFile(refs) 
-    print "Log written to: {}.log".format(argv.batch)
-    
+    print "Log written to: {}.log".format(argv.batch)   
 
 
 

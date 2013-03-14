@@ -56,13 +56,14 @@ def QueryDOI(refs, batch, cross_opts):
               'unstructured_citation': ("",)}
     
     field_processors = {'first_page': proc.firstpage,
-                        'issn': proc.issn}
+                        'issn': proc.issn,
+                        'author': proc.author}
     
     field_opts = {'author': {'search-all-authors':'true'},
                   'article_title': {'match':'fuzzy'}}
                   
     root_element = lambda key: cET.Element("query", 
-                                           {'enable-multiple-hits':'multi_hit_per_rule',
+                                           {'enable-multiple-hits':'false',
                                             'secondary-query':'author-title',
                                             'list-components':'false',
                                             'expanded-results':'false',
@@ -126,11 +127,25 @@ def QueryDOI(refs, batch, cross_opts):
                 body.append(queryElement(ref))
             else:
                 #we need to add an unstructured_citation
-                qElem = root_element(ref.ref_key)
-                unstruct_cit = cET.Element("unstructured_citation")
-                unstruct_cit.text = util.detex(ref.ref_str)
-                qElem.append(unstruct_cit)
-                body.append(qElem)
+                #but first we try an author-title search
+                try:
+                    #parse ref for author and title
+                    r = util.reformat(ref.ref_str, listed=True)
+                    
+                    #the len(r'\newblock') = 9, so slice it off
+                    aut = util.splitAuthor(r[1][9:].strip(), first=True)
+                    ref.query['author'] = aut
+                    t = util.detex(r[2][9:]).strip()
+                    ref.query['title'] = t
+                    
+                    body.append(queryElement(ref))
+                except:
+                    qElem = root_element(ref.ref_key)
+                    unstruct_cit = cET.Element("unstructured_citation")
+                    unstruct_cit.text = util.detex(ref.ref_str)
+                    qElem.append(unstruct_cit)
+                    body.append(qElem)
+                    
         
         h.append(body)
         
