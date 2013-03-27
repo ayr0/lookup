@@ -48,7 +48,7 @@ def load_bib_lines(filenames):
     bibsection = 0
     biberrors = 0
     filenames = expandFilenames(filenames)
-    for line in fileinput.input(filenames):
+    for line in fileinput.input(filenames, mode='rU'):
         #iterate until we get to a bibitem section
         line = line.strip()
         if line.startswith(r"\begin{thebibliography}"):
@@ -61,7 +61,7 @@ def load_bib_lines(filenames):
             bibitems = []
             bibsection = 0
             fileinput.nextfile()
-        
+
         if bibsection == 1:
             if not line.isspace():
                 try:
