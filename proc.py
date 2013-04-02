@@ -5,13 +5,20 @@ def firstpage(pages):
     return pages[:pages.find('--')]
 
 def issn(issn_num):
-    issn_num = issn_num.replace('-', '')
+    #Must match pattern \d{4}-?\d{3}[\dX]
     
-    if len(issn_num) == 7:
-        return issn_num + "X"
-    else:
-        return issn_num
+    def tail(x):
+        return x[:3].isdigit() and (x[3].isdigit() or x[3] == 'X')
     
+    issn_num = issn_num.upper()
+    
+    if issn_num[:4].isdigit():
+        if (issn_num[4] == '-' and tail(issn_num[5:])) or tail(issn_num[4:]):
+            return issn_num
+        else:
+            return ""
+
+        
 def author(aut):
     aut = util.escape_replace(aut, "~", " ", escape="\\")
     return aut[aut.rfind(" "):].strip()
