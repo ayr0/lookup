@@ -1,6 +1,8 @@
 '''
 Created on Oct 15, 2012
 
+Simple character parser.  Used to parse bibtex and amsrefs.
+
 @author: grout
 '''
 

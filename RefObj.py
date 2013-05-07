@@ -1,3 +1,7 @@
+"""
+RefObj tracks the reference and its information
+"""
+
 __author__ = 'grout'
 
 import hashlib
@@ -85,7 +89,11 @@ class RefObj(object):
         return bibstr, mrstr[1:-1]
 
     def addRefs(self, mr=True, doi=True):
-
+        """Add doi and mr to the reference.
+        
+        This does not modify the reference data!  It returns a string representation
+        of the reference with the ref numbers added
+        """
         
         lines = self.ref_str.splitlines()
         bibline = lines[0]

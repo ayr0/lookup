@@ -64,6 +64,7 @@ def loadDoi(filename):
     return doi_keys
 
 def insertDoi(files, references):
+    """Set doi for references from files"""
     files = [os.path.abspath(x.strip()) for x in files.split(',')]
     
     #build dictionary of references for faster lookup

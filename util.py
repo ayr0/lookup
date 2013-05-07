@@ -18,6 +18,7 @@ subs = {r'\&': '&',
         r'~': ' '}
 
 def getsubst():
+    """Read character substitutions from crossref.cfg and store them in a global dictionary"""
     
     f = ConfigParser.SafeConfigParser()
     f.read("crossref.cfg")
@@ -82,6 +83,7 @@ def load_bib_lines(filenames):
     return split_bibitems(bibliography)
     
 def split_bibitems(bibliography):
+    """Split the bibliography into bibitem blocks"""
     
     refs = []
     for filename, bib in bibliography.iteritems():
@@ -96,6 +98,7 @@ def split_bibitems(bibliography):
     return refs
 
 def partition(alist, indices):
+    """Recipe from itertools"""
     izip, chain = itertools.izip, itertools.chain
     pairs = izip(chain([0], indices), chain(indices, [None]))
     return (alist[i:j] for i, j in pairs)
@@ -123,19 +126,19 @@ def splitAuthor(authors, sep='and', first=True):
         return tmp
 
 def reformat(refstr, listed=False):
-        r"""Reformat the reference.
+    r"""Reformat the reference.
 
-        listed controls the return type.  If true, will return a list of the lines.
-        If false, will return a string
-        
-        Changes self.refstr
-        """
-        
-        formatted = ' '.join(refstr.split()).replace(r'\newblock', '\n\\newblock').splitlines()
-        if listed:
-            return formatted
-        else:
-            return '\n'.join(formatted)
+    listed controls the return type.  If true, will return a list of the lines.
+    If false, will return a string
+    
+    Changes self.refstr
+    """
+    
+    formatted = ' '.join(refstr.split()).replace(r'\newblock', '\n\\newblock').splitlines()
+    if listed:
+        return formatted
+    else:
+        return '\n'.join(formatted)
 
 
 def escape(text):
@@ -189,6 +192,13 @@ def detex(tex):
     return tex.strip()
 
 def escape_replace(s, old, new, escape='\\'):
+    """A character escape aware string replace function
+    
+    s = string to perform replacement with
+    old = substring to replace
+    new = string to replace old
+    escape = the escape character to be aware of
+    """
     newstr = []
     if len(old) == 0:
         return
@@ -201,7 +211,10 @@ def escape_replace(s, old, new, escape='\\'):
     return ''.join(newstr)
             
 def sanitizeXML(filename):
-
+    """Crossref often doesn't properly escape ampersands in its XML returns
+    
+    Before  parsing the xml, we need to escape these ampersands properly
+    """
     #we have to remove all illegal characters from crossref xml
     full_path = os.path.abspath(filename)
     path, filename = os.path.split(full_path)

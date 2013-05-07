@@ -1,3 +1,7 @@
+"""Processors for different fields of a reference
+
+These processors are used for each reference processed for crossref query
+"""
 import util
 
 def firstpage(pages):

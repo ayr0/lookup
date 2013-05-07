@@ -40,6 +40,8 @@ def QueryDOI(refs, batch, cross_opts):
     """Query DOI references.
     
     Expects a list of reference objects from which it will build a query
+    batch = string identifying the batch
+    cross_opts = a dictionary of options for crossref (from crossref.cfg
     """
     
     fields = {'author': ("author",),
@@ -77,7 +79,8 @@ def QueryDOI(refs, batch, cross_opts):
 
               
     def queryElement(element):
-
+        """Build a single query element"""
+        
         #try to get the query from AMS
         _query = element.query
         
@@ -157,6 +160,12 @@ def QueryDOI(refs, batch, cross_opts):
     return file_list
             
 def POST(post_files, login, passwd):
+    """Send files via http to crossref.  Used to post xml files
+    
+    post_files = a list of file to send to crossref
+    login = the account login
+    passwd = the account passwd
+    """
     crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login, passwd)
     dat = {'area':'live', 'operation':'doQueryUpload'}
     for f in post_files:
@@ -303,8 +312,9 @@ def fetchMR(ref, mode=2, dataType="amsrefs"):
         0: always use AMS values
         1: always use existing values
         2: use AMS only when no existing value else existing value
+        
+        dataType = "amsrefs" or "bibtex" or "link"
         """
-        #Use query module
 
         if mode == 1:
             logging.info("Mode = 1: returning MR={}\tDOI={}".format(ref.ref_mr, ref.ref_doi))
