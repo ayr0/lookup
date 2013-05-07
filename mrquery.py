@@ -95,7 +95,7 @@ def queryMR(references, batch, ref_type='amsrefs', mode=2, debug=""):
     doi_refs = 0
     for i, ref in enumerate(references):
         print "Reference {}/{}\tRequesting {}...".format(i, total, ref_type)
-        ref.fetchMR(mode=mode, dataType=ref_type)
+        query.fetchMR(ref, mode=mode, dataType=ref_type)
         print "{}\t{}".format(ref.ref_mr, ref.ref_doi)
         if ref.ref_doi:
             doi_refs += 1   
@@ -105,7 +105,7 @@ def queryMR(references, batch, ref_type='amsrefs', mode=2, debug=""):
 def main(argv):
     '''kick everything off'''
 
-    if argv.dump is True:
+    if argv.dump:
         debug = logging.DEBUG
     else:
         debug = logging.INFO
@@ -158,6 +158,6 @@ if __name__ == "__main__":
     mrargs.add_argument("--mode", action="store", default=2, type=int, help="Query mode: 0 = Always use queried value; 1 = Always use existing value; 2 = Use queried value only when necessary")
     mrargs.add_argument("--dump", action="store_true", help="Dump query results to file (For debugging)")
     mrargs.add_argument('files', metavar='files', nargs='*', help='TeX files to process')
-    mrargs.add_argument('--version', action='version', version='20130314')
+    mrargs.add_argument('--version', action='version', version='20130507')
 
     main(mrargs.parse_args())

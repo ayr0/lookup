@@ -1,9 +1,7 @@
 __author__ = 'grout'
 
 import hashlib
-import logging
 import util
-import query
 
 class RefObj(object):
     def __init__(self, filename, refstr=""):
@@ -136,44 +134,6 @@ class RefObj(object):
         #print "setting %s" % lines[0]
         lines[-1] = lines[-1] + "\n\n"
         return ''.join(lines)
-
-    def fetchMR(self, mode=2, dataType="amsrefs"):
-        """Fetch MR reference from ams.org
-        
-        modes:
-        0: always use AMS values
-        1: always use existing values
-        2: use AMS only when no existing value else existing value
-        """
-        #Use query module
-
-        if mode == 1:
-            logging.info("Mode = 1: returning MR={}\tDOI={}".format(self.ref_mr, self.ref_doi))
-            return
-        else:
-            self.query = query.QueryMR(self.ref_str, dataType=dataType)
-            logging.debug(self.query)
-            logging.debug(self.ref_str)
-            
-            try:
-                amsmr = self.query.get("mr", "")
-                doicref = self.query.get("doi", "")
-                
-                if mode == 0:
-                    logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))
-                    self.setMR(amsmr)
-                    self.setDOI(doicref)
-                elif mode == 2 and not self.ref_mr:
-                    logging.info("Mode = 2: existing MR: {}\tsetting MR={}".format(self.ref_mr, amsmr))
-                    self.setMR(amsmr)
-                
-                if mode == 2 and not self.ref_doi:
-                    logging.info("Mode = 2: existing DOI: {}\tsetting DOI={}".format(self.ref_doi, doicref))
-                    self.setDOI(doicref)
-            except AttributeError:
-                pass
-            except KeyError:
-                pass
 
     def setDOI(self, doi):
         """Setter for DOI reference number"""

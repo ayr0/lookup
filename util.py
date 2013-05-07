@@ -5,7 +5,6 @@ import RefObj
 import fileinput
 import itertools
 import ConfigParser
-import string
 
 subs = {r'\&': '&',
         r"\'": '',
@@ -118,7 +117,7 @@ def splitAuthor(authors, sep='and', first=True):
     based on sep and return the first author only if first is True
     """
     tmp = [k.strip() for k in authors.split(sep)]
-    if first is True:
+    if first:
         return tmp[0].split(',')[0].strip()
     else:
         return tmp
@@ -206,10 +205,10 @@ def sanitizeXML(filename):
     #we have to remove all illegal characters from crossref xml
     full_path = os.path.abspath(filename)
     path, filename = os.path.split(full_path)
-    with open(full_path, 'r') as input:
-        with open(os.path.join(path,"tmp"+filename), 'w') as output:
-            for line in input:
-                output.write(line.replace(r'&', r'&amp;'))
+    with open(full_path, 'r') as in_file:
+        with open(os.path.join(path,"tmp"+filename), 'w') as out_file:
+            for line in in_file:
+                out_file.write(line.replace(r'&', r'&amp;'))
     os.remove(full_path)
     os.rename(os.path.join(path, "tmp"+filename), os.path.join(path, filename))
     

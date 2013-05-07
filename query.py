@@ -199,7 +199,6 @@ def bibtex(data, first=True):
     s.nextBrace()
     
     #start a sub parser
-    print "sub parser"
     s.subParser()
     ret['mr'] = s.sub.nextWord(alphanum=True)
     s.sub.nextLiteral(',')
@@ -296,3 +295,41 @@ def QueryMR(ref, dataType='amsrefs'):
         return {}
     except NoContentError:
         return {}
+    
+def fetchMR(ref, mode=2, dataType="amsrefs"):
+        """Fetch MR reference from ams.org
+        
+        modes:
+        0: always use AMS values
+        1: always use existing values
+        2: use AMS only when no existing value else existing value
+        """
+        #Use query module
+
+        if mode == 1:
+            logging.info("Mode = 1: returning MR={}\tDOI={}".format(ref.ref_mr, ref.ref_doi))
+            return
+        else:
+            ref.query = QueryMR(ref.ref_str, dataType=dataType)
+            logging.debug(ref.query)
+            logging.debug(ref.ref_str)
+            
+            try:
+                amsmr = ref.query.get("mr", "")
+                doicref = ref.query.get("doi", "")
+                
+                if mode == 0:
+                    logging.info("Mode = 0: setting MR={}\tDOI={}".format(amsmr, doicref))
+                    ref.setMR(amsmr)
+                    ref.setDOI(doicref)
+                elif mode == 2 and not ref.ref_mr:
+                    logging.info("Mode = 2: existing MR: {}\tsetting MR={}".format(ref.ref_mr, amsmr))
+                    ref.setMR(amsmr)
+                
+                if mode == 2 and not ref.ref_doi:
+                    logging.info("Mode = 2: existing DOI: {}\tsetting DOI={}".format(ref.ref_doi, doicref))
+                    ref.setDOI(doicref)
+            except AttributeError:
+                pass
+            except KeyError:
+                pass

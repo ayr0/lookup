@@ -59,7 +59,7 @@ def matchStr(s, expected, start=0):
         raise ValueError("Unexpected String! Expected: {} but got {} instead!".format(expected, cmp))
     
 def matchWord(s, start=0, alphanum=False):
-    if alphanum is True:
+    if alphanum:
         chars = string.letters+string.digits
     else:
         chars = string.letters
