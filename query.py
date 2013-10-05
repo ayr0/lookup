@@ -26,14 +26,23 @@ OR IN CONNECTION WITH THE USE OF PERFORMANCE OF THIS SOFTWARE.
 from urllib import quote
 from urllib2 import urlopen, URLError
 from xml.etree import cElementTree as cET
+from copy import copy
 import logging
-import requests
 import util
 import proc
 import rparser
-import copy
+
+_requests = False
+try:
+    import requests
+    _requests = True
+except ImportError:
+    pass
 
 class NoContentError(Exception):
+    pass
+
+class PostError(Exception):
     pass
 
 def QueryDOI(refs, batch, cross_opts):
@@ -123,7 +132,7 @@ def QueryDOI(refs, batch, cross_opts):
     query_refs = [query_refs[i:i+per_file] for i in xrange(0, len(query_refs), per_file)]
     file_list = []
     for num, chunk in enumerate(query_refs):
-        h = copy.copy(header)
+        h = copy(header)
         body = cET.Element("body")
         for ref in chunk:
             if ref.query != {}:
@@ -159,22 +168,26 @@ def QueryDOI(refs, batch, cross_opts):
     print "Queried {}/{} references".format(num_query, len(refs))
     return file_list
             
-def POST(post_files, login, passwd):
+def post(post_files, login, passwd):
     """Send files via http to crossref.  Used to post xml files
     
     post_files = a list of file to send to crossref
     login = the account login
     passwd = the account passwd
     """
-    crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login, passwd)
-    dat = {'area':'live', 'operation':'doQueryUpload'}
-    for f in post_files:
-        r = requests.post(crossref_url, data=dat, files={f:open(f, 'r')})
-        if r.status_code == 200:
-            print "Uploaded ", f
-        else:
-            print "{} did not upload correctly. {}".format(f, r.reason)
-        
+    
+    if _requests:
+        crossref_url = 'http://doi.crossref.org/servlet/deposit?login_id={0}&login_passwd={1}'.format(login, passwd)
+        dat = {'area':'live', 'operation':'doQueryUpload'}
+        for f in post_files:
+            r = requests.post(crossref_url, data=dat, files={f:open(f, 'r')})
+            if r.status_code == 200:
+                print "Uploaded ", f
+            else:
+                print "{} did not upload correctly. {}".format(f, r.reason)
+    else:
+        raise PostError("requests library not found")
+    
 def _get_pre_tag(data):
     '''Get the pre tag'''
     pre_start = data.find("<pre>") + 5

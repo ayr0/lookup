@@ -138,7 +138,12 @@ def main(argv):
             file_list = query.QueryDOI(refs, argv.batch, cross_cfg)
             response = raw_input("Should I upload to Crossref right now (y/n)? ")
             if response.lower() == 'y':
-                query.POST(file_list, cross_cfg['login_id'], cross_cfg['login_passwd'])
+                try:
+                    query.post(file_list, cross_cfg['login_id'], cross_cfg['login_passwd'])
+                except query.PostError:
+                    print "requests library is not installed!  Unable to upload to Crossref"
+                    print "Please install the requests library from"
+                    print "http://docs.python-requests.org/en/latest/"
     
     print "\nSaving batch to file:", argv.batch
     cPickle.dump(refs, open(argv.batch, 'wb'))
