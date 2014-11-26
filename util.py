@@ -227,4 +227,25 @@ def sanitizeXML(filename):
     
     return full_path
     
+def load_abbrev():
+    f = ConfigParser.SafeConfigParser()
+    f.read("crossref.cfg")
+    
+    try:
+        abbrev_fname = f.get('lookup', 'abbreviations_file')
+    except ConfigParser.NoSectionError, ConfigParser.NoOptionError:
+        abbrev_fname = None
+        
+    if abbrev_fname:
+        return load_abbreviations(abbrev_fname)
+    return dict()
+
+def load_abbreviations(fname):
+    a = {}
+    with open(fname, 'rU') as abbrev:
+        for line in abbrev:
+            ex, ab = line.split('=')
+            a[ex.strip()] = ab.strip()
+    return a
+    
     
