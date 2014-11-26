@@ -1,0 +1,9 @@
+Automated MR and DOI lookup.
+
+This project is designed to use LaTeX references to lookup the corresponding MR and DOI references numbers from AMS and 
+Crossref (respectively).
+
+Running the program without arguments will display usage information.
+
+Dependencies:
+Requests
