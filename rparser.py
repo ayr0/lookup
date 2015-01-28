@@ -8,6 +8,8 @@ Simple character parser.  Used to parse bibtex and amsrefs.
 
 import string
 
+chars_alphanum = string.letters + string.digits
+
 class Parser(object):
     def __init__(self, ref_str, start_pos=0,):
         self.input = ' '.join(ref_str.split())
@@ -62,10 +64,10 @@ def matchStr(s, expected, start=0):
     
 def matchWord(s, start=0, alphanum=False):
     if alphanum:
-        chars = string.letters+string.digits
+        chars = chars_alphanum
     else:
         chars = string.letters
-        
+    
     for ind in xrange(start, len(s)):
         if s[ind] not in chars:
             return ind, s[start:ind]
